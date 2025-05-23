@@ -7,6 +7,7 @@ import Signup from './pages/auth/Signup'
 import Dashboard from './pages/Dashboard'
 import ChantiersList from './pages/ChantiersList'
 import ChantierDetail from './pages/ChantierDetail'
+import ChantierForm from './pages/ChantierForm'
 import InterventionsList from './pages/InterventionsList'
 import InterventionForm from './pages/InterventionForm'
 import Settings from './pages/Settings.jsx'
@@ -49,6 +50,14 @@ function App() {
             <ProtectedRoute>
               <Layout>
                 <Dashboard />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/chantiers/new" element={
+            <ProtectedRoute>
+              <Layout>
+                <ChantierForm />
               </Layout>
             </ProtectedRoute>
           } />

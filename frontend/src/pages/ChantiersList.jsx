@@ -71,10 +71,13 @@ const ChantiersList = () => {
           <h1 className="text-2xl font-bold text-gray-900">Chantiers</h1>
           <p className="text-gray-600">{filteredChantiers.length} chantier(s) trouvé(s)</p>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center">
+        <Link 
+          to="/chantiers/new"
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center"
+        >
           <Plus className="h-4 w-4 mr-2" />
           Nouveau chantier
-        </button>
+        </Link>
       </div>
 
       {/* Filtres */}
