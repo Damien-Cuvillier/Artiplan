@@ -113,7 +113,7 @@ const InterventionsList = () => {
                         {intervention.type.charAt(0).toUpperCase() + intervention.type.slice(1)}
                       </span>
                       <Link 
-                        to={`/chantiers/${intervention.chantierId}`}
+                        to={`/chantier/${intervention.chantierId}`}
                         className="text-sm text-blue-600 hover:text-blue-800"
                       >
                         {intervention.chantierName}
@@ -134,7 +134,7 @@ const InterventionsList = () => {
                     </div>
                   </div>
                   <Link
-                    to={`/chantiers/${intervention.chantierId}`}
+                    to={`/chantier/${intervention.chantierId}`}
                     className="p-1 text-gray-400 hover:text-gray-600"
                   >
                     <Eye className="h-5 w-5" />
