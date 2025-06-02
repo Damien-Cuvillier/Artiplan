@@ -1,258 +1,334 @@
-import { create } from 'zustand'
-import { mockChantiers } from '../data/chantiers'
-
-// Récupérer les chantiers du localStorage ou utiliser les données mockées
-const getInitialChantiers = () => {
-  const savedChantiers = localStorage.getItem('chantiers')
-  return savedChantiers ? JSON.parse(savedChantiers) : mockChantiers
-}
+// src/store/chantierStore.js
+import { create } from 'zustand';
+import { API_BASE_URL, API_ENDPOINTS, getAuthHeader } from '../config/api';
 
 export const useChantierStore = create((set, get) => ({
-  chantiers: getInitialChantiers(),
+  chantiers: [],
   currentChantier: null,
+  interventions: [],
   isLoading: false,
-
-  // Ajouter un nouveau chantier
-  addChantier: async (chantierData) => {
-    set({ isLoading: true })
-    
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    const newChantier = {
-      ...chantierData,
-      id: Date.now(),
-      interventions: [],
-      images: [],
-      progress: 0,
-      status: 'planifie'
-    }
-    
-    set(state => {
-      const updatedChantiers = [...state.chantiers, newChantier]
-      // Sauvegarder dans le localStorage
-      localStorage.setItem('chantiers', JSON.stringify(updatedChantiers))
-      return {
-        chantiers: updatedChantiers,
-        isLoading: false
-      }
-    })
-    
-    return newChantier
-  },
+  error: null,
 
   // Récupérer tous les chantiers
   fetchChantiers: async () => {
-    set({ isLoading: true })
-    
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 500))
-    
-    // Utiliser les données du localStorage
-    const savedChantiers = localStorage.getItem('chantiers')
-    set({ 
-      chantiers: savedChantiers ? JSON.parse(savedChantiers) : get().chantiers,
-      isLoading: false 
-    })
+    set({ isLoading: true, error: null });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/chantiers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      if (!response.ok) {
+        throw new Error('Erreur lors de la récupération des chantiers');
+      }
+  
+      const responseData = await response.json();
+      console.log('Données reçues du serveur:', responseData);
+  
+      // Vérifiez la structure de la réponse
+      const chantiers = responseData.data?.chantiers || responseData.data || responseData;
+      console.log('Chantiers extraits:', chantiers);
+  
+      set({ 
+        chantiers: Array.isArray(chantiers) ? chantiers : [], 
+        isLoading: false 
+      });
+  
+      return chantiers;
+    } catch (error) {
+      console.error('Erreur dans fetchChantiers:', error);
+      set({ error: error.message, isLoading: false });
+      return [];
+    }
   },
 
-  // Récupérer un chantier par ID
+  // Récupérer un chantier par son ID
   fetchChantierById: async (id) => {
-    set({ isLoading: true })
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    const chantier = get().chantiers.find(c => c.id === parseInt(id))
-    set({ currentChantier: chantier, isLoading: false })
-    return chantier
+    set({ isLoading: true, error: null });
+    try {
+      console.log(`Tentative de récupération du chantier avec l'ID: ${id}`);
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHANTIERS}/${id}`, {
+        headers: getAuthHeader(),
+      });
+
+      console.log('Réponse du serveur:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        let errorMessage = 'Erreur lors de la récupération du chantier';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+          console.error('Détails de l\'erreur:', errorData);
+        } catch (e) {
+          console.error('Erreur lors de la lecture du message d\'erreur:', e);
+        }
+        throw new Error(errorMessage);
+      }
+
+      const data = await response.json();
+      console.log('Données du chantier reçues:', data);
+      
+      // Vérifier si les données sont dans data.data (convention REST)
+      const chantier = data.data?.chantier || data;
+      
+      set({ currentChantier: chantier, isLoading: false });
+      return chantier;
+    } catch (error) {
+      console.error('Erreur dans fetchChantierById:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
   },
 
-  // Calculer la progression d'un chantier
-  calculateProgress: (chantier) => {
-    if (!chantier.interventions || chantier.interventions.length === 0) {
-      return 0
+  // Créer un nouveau chantier
+  // Dans votre store chantierStore.js
+createChantier: async (chantierData) => {
+  set({ isLoading: true, error: null });
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_BASE_URL}/api/chantiers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(chantierData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erreur lors de la création du chantier');
     }
 
-    const totalInterventions = chantier.interventions.length
-    const completedInterventions = chantier.interventions.filter(
-      i => i.status === 'terminee'
-    ).length
-
-    return Math.round((completedInterventions / totalInterventions) * 100)
-  },
-
-  // Mettre à jour la progression d'un chantier
-  updateChantierProgress: (chantierId) => {
-    set(state => {
-      const chantier = state.chantiers.find(c => c.id === parseInt(chantierId))
-      if (!chantier) return state
-
-      const progress = get().calculateProgress(chantier)
-      
-      const updatedChantier = {
-        ...chantier,
-        progress,
-        // Mettre à jour automatiquement le statut en fonction de la progression
-        status: progress === 100 ? 'termine' : 
-               progress > 0 ? 'en_cours' : 
-               'planifie'
-      }
-
-      const updatedChantiers = state.chantiers.map(c => 
-        c.id === parseInt(chantierId) ? updatedChantier : c
-      )
-
-      // Sauvegarder dans le localStorage
-      localStorage.setItem('chantiers', JSON.stringify(updatedChantiers))
-
-      return {
-        ...state,
-        chantiers: updatedChantiers,
-        currentChantier: state.currentChantier?.id === parseInt(chantierId) ? updatedChantier : state.currentChantier
-      }
-    })
-  },
-
-  // Ajouter une nouvelle intervention
-  addIntervention: async (interventionData) => {
-    set({ isLoading: true })
+    const responseData = await response.json();
     
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 300))
+    // Mettez à jour la liste des chantiers
+    await get().fetchChantiers();
     
-    const newIntervention = {
-      ...interventionData,
-      id: Date.now()
-    }
-    
-    set(state => {
-      const updatedChantier = {
-        ...state.currentChantier,
-        interventions: [...(state.currentChantier.interventions || []), newIntervention]
-      }
-      
-      const updatedChantiers = state.chantiers.map(c => 
-        c.id === updatedChantier.id ? updatedChantier : c
-      )
-      
-      // Sauvegarder dans le localStorage
-      localStorage.setItem('chantiers', JSON.stringify(updatedChantiers))
-      
-      return {
-        chantiers: updatedChantiers,
-        currentChantier: updatedChantier,
-        isLoading: false
-      }
-    })
-
-    // Mettre à jour la progression
-    get().updateChantierProgress(interventionData.chantierId)
-    
-    return newIntervention
-  },
-
-  // Mettre à jour une intervention
-  updateIntervention: async (interventionId, interventionData) => {
-    set({ isLoading: true })
-    
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    set(state => {
-      const updatedChantier = {
-        ...state.currentChantier,
-        interventions: state.currentChantier.interventions.map(i => 
-          i.id === interventionId ? { ...i, ...interventionData } : i
-        )
-      }
-      
-      const updatedChantiers = state.chantiers.map(c => 
-        c.id === updatedChantier.id ? updatedChantier : c
-      )
-      
-      // Sauvegarder dans le localStorage
-      localStorage.setItem('chantiers', JSON.stringify(updatedChantiers))
-      
-      return {
-        chantiers: updatedChantiers,
-        currentChantier: updatedChantier,
-        isLoading: false
-      }
-    })
-
-    // Mettre à jour la progression
-    get().updateChantierProgress(state.currentChantier.id)
-  },
-
-  // Récupérer les interventions d'un chantier
-  getInterventionsByChantier: (chantierId) => {
-    const { chantiers } = get()
-    const chantier = chantiers.find(c => c.id === parseInt(chantierId))
-    return chantier?.interventions || []
-  },
-
-  // Récupérer toutes les interventions
-  getAllInterventions: () => {
-    const { chantiers } = get()
-    return chantiers.reduce((allInterventions, chantier) => {
-      const interventions = (chantier.interventions || []).map(intervention => ({
-        ...intervention,
-        chantierId: chantier.id,
-        chantierName: chantier.name
-      }))
-      return [...allInterventions, ...interventions]
-    }, [])
-  },
+    return responseData.data.chantier;
+  } catch (error) {
+    console.error('Erreur createChantier:', error);
+    set({ error: error.message, isLoading: false });
+    throw error;
+  } finally {
+    set({ isLoading: false });
+  }
+},
 
   // Mettre à jour un chantier
-  updateChantier: async (chantierId, chantierData) => {
-    set({ isLoading: true })
-    
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    set(state => {
-      const updatedChantier = {
-        ...state.chantiers.find(c => c.id === chantierId),
-        ...chantierData,
-        // Préserver les champs qui ne doivent pas être écrasés
-        id: chantierId,
-        interventions: state.chantiers.find(c => c.id === chantierId)?.interventions || [],
-        images: state.chantiers.find(c => c.id === chantierId)?.images || []
+  updateChantier: async (id, chantierData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHANTIERS}/${id}`, {
+        method: 'PUT',
+        headers: getAuthHeader(),
+        body: JSON.stringify(chantierData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la mise à jour du chantier');
       }
-      
-      const updatedChantiers = state.chantiers.map(c => 
-        c.id === chantierId ? updatedChantier : c
-      )
-      
-      // Sauvegarder dans le localStorage
-      localStorage.setItem('chantiers', JSON.stringify(updatedChantiers))
-      
-      return {
-        chantiers: updatedChantiers,
+
+      const updatedChantier = await response.json();
+      set(state => ({
+        chantiers: state.chantiers.map(chantier => 
+          chantier._id === id ? updatedChantier : chantier
+        ),
         currentChantier: updatedChantier,
         isLoading: false
-      }
-    })
+      }));
+      return updatedChantier;
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
   },
 
   // Supprimer un chantier
-  deleteChantier: async (chantierId) => {
-    set({ isLoading: true })
-    
-    // Simulation d'un appel API
-    await new Promise(resolve => setTimeout(resolve, 300))
-    
-    set(state => {
-      const updatedChantiers = state.chantiers.filter(c => c.id !== parseInt(chantierId))
-      
-      // Sauvegarder dans le localStorage
-      localStorage.setItem('chantiers', JSON.stringify(updatedChantiers))
-      
-      return {
-        chantiers: updatedChantiers,
-        currentChantier: state.currentChantier?.id === parseInt(chantierId) ? null : state.currentChantier,
-        isLoading: false
+  deleteChantier: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHANTIERS}/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la suppression du chantier');
       }
-    })
+
+      set(state => ({
+        chantiers: state.chantiers.filter(chantier => chantier._id !== id),
+        currentChantier: state.currentChantier?._id === id ? null : state.currentChantier,
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
   },
-}))
+
+  // Récupérer toutes les interventions depuis l'API
+  fetchAllInterventions: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}`, {
+        headers: getAuthHeader(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la récupération des interventions');
+      }
+
+      const data = await response.json();
+      const interventions = data.data?.interventions || data.data || data;
+      
+      // Mettre à jour le store avec les interventions
+      set({ interventions, isLoading: false });
+      return interventions;
+      
+    } catch (error) {
+      console.error('Erreur dans fetchAllInterventions:', error);
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // Récupérer toutes les interventions (depuis le store ou l'API si nécessaire)
+  getAllInterventions: async () => {
+    const { interventions } = get();
+    
+    // Si nous avons déjà des interventions en mémoire, on les retourne
+    if (interventions && interventions.length > 0) {
+      return interventions;
+    }
+    
+    // Sinon, on les récupère depuis l'API
+    try {
+      return await get().fetchAllInterventions();
+    } catch (error) {
+      console.error('Erreur lors de la récupération des interventions:', error);
+      return [];
+    }
+  },
+
+  // Récupérer les interventions d'un chantier
+  fetchInterventionsByChantier: async (chantierId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/chantier/${chantierId}`,
+        { headers: getAuthHeader() }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la récupération des interventions');
+      }
+
+      const data = await response.json();
+      
+      // S'assurer que nous avons un tableau d'interventions
+      const interventions = Array.isArray(data.data?.interventions) 
+        ? data.data.interventions 
+        : [];
+      
+      set({ interventions, isLoading: false });
+      return interventions;
+      
+    } catch (error) {
+      console.error('Erreur dans fetchInterventionsByChantier:', error);
+      set({ error: error.message, interventions: [], isLoading: false });
+      throw error;
+    }
+  },
+
+  // Ajouter une intervention
+  addIntervention: async (interventionData) => { 
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader()
+        },
+        body: JSON.stringify(interventionData),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la création de l\'intervention');
+      }
+  
+      const newIntervention = await response.json();
+      set(state => ({
+        interventions: [...state.interventions, newIntervention],
+        isLoading: false
+      }));
+      return newIntervention;
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // Mettre à jour une intervention
+  updateIntervention: async (id, interventionData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`, {
+        method: 'PATCH',
+        headers: getAuthHeader(),
+        body: JSON.stringify(interventionData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la mise à jour de l\'intervention');
+      }
+
+      const updatedIntervention = await response.json();
+      set(state => ({
+        interventions: state.interventions.map(intervention =>
+          intervention._id === id ? updatedIntervention : intervention
+        ),
+        isLoading: false
+      }));
+      return updatedIntervention;
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+
+  // Supprimer une intervention
+  deleteIntervention: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeader(),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la suppression de l\'intervention');
+      }
+
+      set(state => ({
+        interventions: state.interventions.filter(intervention => intervention._id !== id),
+        isLoading: false
+      }));
+    } catch (error) {
+      set({ error: error.message, isLoading: false });
+      throw error;
+    }
+  },
+}));

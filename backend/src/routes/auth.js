@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const router = express.Router();
+const authController = require('../controllers/authController');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 // Middleware d'authentification
 const auth = async (req, res, next) => {
@@ -28,45 +30,7 @@ const auth = async (req, res, next) => {
 };
 
 // Login
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Email et mot de passe requis' });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ message: 'Identifiants invalides' });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Identifiants invalides' });
-    }
-
-    const token = jwt.sign(
-      { userId: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    );
-
-    res.json({ 
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        nom: user.nom,
-        prenom: user.prenom,
-        role: user.role
-      }
-    });
-  } catch (err) {
-    console.error('Erreur de connexion:', err);
-    res.status(500).json({ message: 'Erreur du serveur' });
-  }
-});
+router.post('/login', authLimiter, authController.login);
 
 // Vérifier le token
 router.get('/verify', auth, (req, res) => {
@@ -81,4 +45,4 @@ router.get('/verify', auth, (req, res) => {
   });
 });
 
-module.exports = router
+module.exports = router;

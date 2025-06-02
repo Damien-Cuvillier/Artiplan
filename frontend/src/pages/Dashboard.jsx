@@ -22,24 +22,38 @@ const Dashboard = () => {
     fetchChantiers()
   }, [fetchChantiers])
 
+  // Fonction de mapping des statuts
+  const mapStatus = (status) => {
+    const mapping = {
+      'en_attente': 'planifie',
+      'en_cours': 'en_cours',
+      'termine': 'termine',
+      'annule': 'suspendu'
+    };
+    return mapping[status] || status;
+  };
+
   // Calculs pour les statistiques
   const stats = {
-    total: chantiers.length,
-    enCours: chantiers.filter(c => c.status === 'en_cours').length,
-    planifies: chantiers.filter(c => c.status === 'planifie').length,
-    termines: chantiers.filter(c => c.status === 'termine').length,
-    budgetTotal: chantiers.reduce((sum, c) => sum + c.budget, 0),
-    progressionMoyenne: Math.round(chantiers.reduce((sum, c) => sum + c.progress, 0) / chantiers.length || 0)
+    total: Array.isArray(chantiers) ? chantiers.length : 0,
+    enCours: Array.isArray(chantiers) ? chantiers.filter(c => c.statut === 'en_cours').length : 0,
+    planifies: Array.isArray(chantiers) ? chantiers.filter(c => c.statut === 'en_attente').length : 0,
+    termines: Array.isArray(chantiers) ? chantiers.filter(c => c.statut === 'termine').length : 0,
+    budgetTotal: Array.isArray(chantiers) ? chantiers.reduce((sum, c) => sum + (c.budget || 0), 0) : 0,
+    progressionMoyenne: Array.isArray(chantiers) && chantiers.length > 0 
+      ? Math.round(chantiers.reduce((sum, c) => sum + (c.progression || 0), 0) / chantiers.length) 
+      : 0
   }
 
   const getStatusColor = (status) => {
+    const mappedStatus = mapStatus(status);
     const colors = {
       planifie: 'bg-yellow-100 text-yellow-800',
       en_cours: 'bg-blue-100 text-blue-800',
       termine: 'bg-green-100 text-green-800',
       suspendu: 'bg-red-100 text-red-800'
     }
-    return colors[status] || 'bg-gray-100 text-gray-800'
+    return colors[mappedStatus] || 'bg-gray-100 text-gray-800'
   }
 
   const getPriorityColor = (priority) => {
@@ -65,7 +79,7 @@ const Dashboard = () => {
       {/* Welcome */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Bonjour, {user?.name} 👋
+          Bonjour, {user?.prenom} {user?.nom} 👋
         </h1>
         <p className="text-gray-600">Voici un aperçu de vos chantiers</p>
       </div>
@@ -116,7 +130,7 @@ const Dashboard = () => {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Budget Total</p>
               <p className="text-2xl font-bold text-gray-900">
-                {stats.budgetTotal.toLocaleString()}€
+                {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(stats.budgetTotal)}
               </p>
             </div>
           </div>
@@ -133,36 +147,37 @@ const Dashboard = () => {
             </h3>
           </div>
           <div className="p-6">
-            {chantiers.filter(c => c.status === 'en_cours').length > 0 ? (
+          {console.log('Statuts des chantiers:', chantiers?.map(c => c.statut))}
+          {chantiers?.filter(c => c.statut === 'en_attente').length > 0 ? (
               <div className="space-y-4">
                 {chantiers
-                  .filter(c => c.status === 'en_cours')
+                  .filter(c => c.statut === 'en_attente')
                   .slice(0, 3)
                   .map((chantier) => (
                     <Link 
-                      key={chantier.id}
-                      to={`/chantier/${chantier.id}`}
+                      key={chantier._id}
+                      to={`/chantiers/${chantier._id}`}
                       className="block hover:bg-gray-50 p-3 rounded-lg transition-colors"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{chantier.name}</h4>
+                          <h4 className="font-medium text-gray-900">{chantier.titre}</h4>
                           <p className="text-sm text-gray-600 flex items-center mt-1">
                             <MapPin className="h-4 w-4 mr-1" />
-                            {chantier.address}
+                            {chantier.adresse}
                           </p>
                           <div className="flex items-center mt-2">
                             <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
                               <div 
                                 className="bg-blue-600 h-2 rounded-full" 
-                                style={{ width: `${chantier.progress}%` }}
+                                style={{ width: `${chantier.progression || 0}%` }}
                               ></div>
                             </div>
-                            <span className="text-sm text-gray-600">{chantier.progress}%</span>
+                            <span className="text-sm text-gray-600">{chantier.progression || 0}%</span>
                           </div>
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(chantier.priority)}`}>
-                          {priorityLabels[chantier.priority]}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(chantier.priorite || 'medium')}`}>
+                          {priorityLabels[chantier.priorite] || 'Moyenne'}
                         </span>
                       </div>
                     </Link>
@@ -185,36 +200,30 @@ const Dashboard = () => {
             </h3>
           </div>
           <div className="p-6">
-            {chantiers.filter(c => c.priority === 'urgent' || c.priority === 'high').length > 0 ? (
+            {chantiers?.filter(c => c.priorite === 'urgent' || c.priorite === 'high').length > 0 ? (
               <div className="space-y-4">
                 {chantiers
-                  .filter(c => c.priority === 'urgent' || c.priority === 'high')
+                  .filter(c => c.priorite === 'urgent' || c.priorite === 'high')
                   .slice(0, 3)
                   .map((chantier) => (
                     <Link 
-                      key={chantier.id}
-                      to={`/chantier/${chantier.id}`}
+                      key={chantier._id}
+                      to={`/chantiers/${chantier._id}`}
                       className="block hover:bg-gray-50 p-3 rounded-lg transition-colors"
                     >
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h4 className="font-medium text-gray-900">{chantier.name}</h4>
-                          <p className="text-sm text-gray-600">{chantier.client}</p>
+                          <h4 className="font-medium text-gray-900">{chantier.titre}</h4>
+                          <p className="text-sm text-gray-600">{chantier.client_nom}</p>
                           <div className="flex items-center mt-2 space-x-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(chantier.status)}`}>
-                              {statusLabels[chantier.status]}
-                            </span>
-                            <span className={`text-xs font-medium ${getPriorityColor(chantier.priority)}`}>
-                              {priorityLabels[chantier.priority]}
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(chantier.statut)}`}>
+                              {statusLabels[mapStatus(chantier.statut)] || chantier.statut}
                             </span>
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-medium text-gray-900">
-                            {chantier.budget.toLocaleString()}€
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(chantier.endDate).toLocaleDateString()}
+                            {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(chantier.budget || 0)}
                           </p>
                         </div>
                       </div>
@@ -235,9 +244,12 @@ const Dashboard = () => {
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium text-gray-900">Tous les Chantiers</h3>
-            <button className="text-blue-600 hover:text-blue-500 text-sm font-medium">
+            <Link 
+              to="/chantiers" 
+              className="text-blue-600 hover:text-blue-500 text-sm font-medium"
+            >
               Voir tout
-            </button>
+            </Link>
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -262,22 +274,22 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {chantiers.map((chantier) => (
-                <tr key={chantier.id} className="hover:bg-gray-50">
+              {chantiers?.slice(0, 5).map((chantier) => (
+                <tr key={chantier._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Link 
-                      to={`/chantier/${chantier.id}`}
+                      to={`/chantiers/${chantier._id}`}
                       className="text-blue-600 hover:text-blue-500 font-medium"
                     >
-                      {chantier.name}
+                      {chantier.titre}
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {chantier.client}
+                    {chantier.client_nom}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(chantier.status)}`}>
-                      {statusLabels[chantier.status]}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(chantier.statut)}`}>
+                      {statusLabels[mapStatus(chantier.statut)] || chantier.statut}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -285,14 +297,14 @@ const Dashboard = () => {
                       <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                         <div 
                           className="bg-blue-600 h-2 rounded-full" 
-                          style={{ width: `${chantier.progress}%` }}
+                          style={{ width: `${chantier.progression || 0}%` }}
                         ></div>
                       </div>
-                      <span className="text-sm text-gray-600">{chantier.progress}%</span>
+                      <span className="text-sm text-gray-600">{chantier.progression || 0}%</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {chantier.budget.toLocaleString()}€
+                    {new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(chantier.budget || 0)}
                   </td>
                 </tr>
               ))}

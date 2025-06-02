@@ -5,7 +5,7 @@ const User = require('../models/User');
   const protect = async (req, res, next) => {
     try {
       let token;
-      if (req.headers.authorization?.startsWith('Bearer ')) {
+      if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
         token = req.headers.authorization.split(' ')[1];
       }
   
@@ -13,18 +13,23 @@ const User = require('../models/User');
         return res.status(401).json({ message: 'Non autorisé, token manquant' });
       }
   
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await User.findById(decoded.userId).select('-password');  // Changé de decoded.id à decoded.userId
-      
-      if (!user) {
-        return res.status(401).json({ message: 'Utilisateur non trouvé' });
-      }
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id).select('-password');
+        
+        if (!user) {
+          return res.status(401).json({ message: 'Utilisateur non trouvé' });
+        }
   
-      req.user = user;
-      next();
+        req.user = user;
+        next();
+      } catch (error) {
+        console.error('Erreur de vérification du token:', error);
+        return res.status(401).json({ message: 'Non autorisé - Token invalide' });
+      }
     } catch (error) {
-      console.error('Erreur d\'authentification:', error);
-      res.status(401).json({ message: 'Non autorisé, token invalide' });
+      console.error('Erreur dans le middleware protect:', error);
+      res.status(500).json({ message: 'Erreur serveur' });
     }
   };
 

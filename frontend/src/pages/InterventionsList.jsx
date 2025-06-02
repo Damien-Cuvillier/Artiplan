@@ -18,21 +18,64 @@ const InterventionsList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [interventions, setInterventions] = useState([])
+  const [isLoadingInterventions, setIsLoadingInterventions] = useState(false)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    fetchChantiers()
-  }, [fetchChantiers])
+    const loadData = async () => {
+      try {
+        setIsLoadingInterventions(true)
+        await fetchChantiers()
+        const allInterventions = await getAllInterventions()
+        setInterventions(allInterventions)
+      } catch (err) {
+        console.error('Erreur lors du chargement des interventions:', err)
+        setError('Erreur lors du chargement des interventions')
+      } finally {
+        setIsLoadingInterventions(false)
+      }
+    }
+    
+    loadData()
+  }, [fetchChantiers, getAllInterventions])
 
-  useEffect(() => {
-    setInterventions(getAllInterventions())
-  }, [getAllInterventions])
+  // Afficher un indicateur de chargement
+  if (isLoading || isLoadingInterventions) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    )
+  }
+
+  // Afficher un message d'erreur s'il y en a un
+  if (error) {
+    return (
+      <div className="bg-red-50 border-l-4 border-red-400 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-red-700">
+              {error}
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Filtrer les interventions
   const filteredInterventions = interventions.filter(intervention => {
+    if (!intervention) return false;
+    
     const matchesSearch = 
-      intervention.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      intervention.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      intervention.chantierName?.toLowerCase().includes(searchTerm.toLowerCase())
+      (intervention.type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (intervention.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (intervention.chantierName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     
     const matchesType = !typeFilter || intervention.type === typeFilter
     
@@ -47,14 +90,6 @@ const InterventionsList = () => {
       inspection: 'bg-yellow-100 text-yellow-800'
     }
     return colors[type] || 'bg-gray-100 text-gray-800'
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    )
   }
 
   return (
@@ -109,9 +144,13 @@ const InterventionsList = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(intervention.type)}`}>
-                        {intervention.type.charAt(0).toUpperCase() + intervention.type.slice(1)}
-                      </span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+  getTypeColor(intervention?.type || '')
+}`}>
+  {intervention?.type ? (
+    intervention.type.charAt(0).toUpperCase() + intervention.type.slice(1)
+  ) : 'Non spécifié'}
+</span>
                       <Link 
                         to={`/chantier/${intervention.chantierId}`}
                         className="text-sm text-blue-600 hover:text-blue-800"

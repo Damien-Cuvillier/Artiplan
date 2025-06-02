@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
-
+import { useEffect } from 'react';
 // Pages
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
@@ -29,6 +29,11 @@ const PublicRoute = ({ children }) => {
 }
 
 function App() {
+  const { initializeAuth } = useAuthStore();
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
@@ -54,7 +59,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/chantiers/new" element={
+          <Route path="/chantiers/nouveau" element={
             <ProtectedRoute>
               <Layout>
                 <ChantierForm />
@@ -70,10 +75,18 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/chantier/:id" element={
+          <Route path="/chantiers/:id" element={
             <ProtectedRoute>
               <Layout>
                 <ChantierDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/chantiers/:id/modifier" element={
+            <ProtectedRoute>
+              <Layout>
+                <ChantierForm />
               </Layout>
             </ProtectedRoute>
           } />

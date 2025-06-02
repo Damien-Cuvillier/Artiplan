@@ -3,21 +3,25 @@ const router = express.Router();
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 const { validateChantier } = require('../validators/chantier.validator');
 const Chantier = require('../models/Chantier');
-const { creerChantier, listeChantiers } = require('../controllers/chantierController');
+
+const chantierController = require('../controllers/chantierController');
 // Appliquer l'authentification à toutes les routes
 router.use(protect);
 router.route('/')
-  .get(listeChantiers)
-  .post(creerChantier);
-
+  .get(chantierController.listeChantiers)
+  .post(chantierController.creerChantier);
+  router.route('/:id')
+  .get(chantierController.getChantier);
 // GET /api/chantiers - Récupérer tous les chantiers (accessible par admin et gestionnaire)
-router.get('/', restrictTo('admin', 'gestionnaire'), async (req, res) => {
+router.get('/', protect, restrictTo('admin', 'gestionnaire'), async (req, res) => {
   try {
+    console.log('Utilisateur authentifié:', req.user); // Pour débogage
     const chantiers = await Chantier.find()
       .populate('client_id', 'nom prenom societe')
       .populate('responsable_id', 'nom prenom');
     res.json(chantiers);
   } catch (err) {
+    console.error('Erreur lors de la récupération des chantiers:', err);
     res.status(500).json({ message: err.message });
   }
 });

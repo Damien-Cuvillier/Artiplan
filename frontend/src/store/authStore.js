@@ -1,80 +1,121 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+// src/store/authStore.js
+import { create } from 'zustand';
+import { API_BASE_URL, API_ENDPOINTS, getAuthHeader } from '../config/api';
 
-export const useAuthStore = create(
-  persist(
-    (set, get) => ({
-      user: null,
-      token: null,
-      isLoading: false,
+// Fonction utilitaire pour obtenir l'utilisateur depuis le localStorage
+const getStoredUser = () => {
+  const user = localStorage.getItem('user');
+  return user ? JSON.parse(user) : null;
+};
 
-      // Connexion (mockée pour l'instant)
-      login: async (email) => {
-        set({ isLoading: true })
-        
-        // Simulation d'une API call
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        // Mock user - à remplacer par vraie API plus tard
-        const mockUser = {
-          id: 1,
-          email: email,
-          name: email.split('@')[0],
-          role: 'admin'
-        }
-        
-        const mockToken = 'mock-jwt-token-' + Date.now()
-        
-        set({ 
-          user: mockUser, 
-          token: mockToken, 
-          isLoading: false 
-        })
-        
-        return { success: true }
-      },
+export const useAuthStore = create((set) => ({
+  // Récupérer l'utilisateur du localStorage au chargement initial
+  user: getStoredUser(),
+  token: localStorage.getItem('token') || null,
+  isAuthenticated: !!localStorage.getItem('token'),
+  isLoading: false,
+  error: null,
 
-      // Inscription (mockée)
-      signup: async (name, email) => {
-        set({ isLoading: true })
-        
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        const mockUser = {
-          id: Date.now(),
-          email: email,
-          name: name,
-          role: 'user'
-        }
-        
-        const mockToken = 'mock-jwt-token-' + Date.now()
-        
-        set({ 
-          user: mockUser, 
-          token: mockToken, 
-          isLoading: false 
-        })
-        
-        return { success: true }
-      },
-
-      // Déconnexion
-      logout: () => {
-        set({ user: null, token: null })
-      },
-
-      // Vérification si utilisateur connecté
-      isAuthenticated: () => {
-        const { user, token } = get()
-        return !!(user && token)
+  login: async (email, password) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Échec de la connexion');
       }
-    }),
-    {
-      name: 'auth-storage', // nom pour localStorage
-      partialize: (state) => ({ 
-        user: state.user, 
-        token: state.token 
-      }) // ne persiste que user et token
+  
+      const data = await response.json();
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.data.user));
+      
+      set({ 
+        user: data.data.user,
+        token: data.token,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Erreur de connexion:', error);
+      set({ 
+        error: error.message || 'Erreur de connexion',
+        isLoading: false
+      });
+      throw error;
     }
-  )
-)
+  },
+
+  logout: () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    set({ 
+      user: null, 
+      token: null, 
+      isAuthenticated: false 
+    });
+  },
+
+  checkAuth: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      set({ isAuthenticated: false, user: null });
+      return false;
+    }
+  
+    set({ isLoading: true });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.ME}`, {
+        headers: getAuthHeader(),
+      });
+  
+      if (!response.ok) {
+        throw new Error('Session expirée');
+      }
+  
+      const userData = await response.json();
+      console.log('Utilisateur récupéré:', userData); // Vérifiez cette sortie
+      
+      localStorage.setItem('user', JSON.stringify(userData));
+      set({ 
+        user: userData,
+        isAuthenticated: true,
+        token: localStorage.getItem('token'),
+        error: null
+      });
+      return true;
+    } catch (error) {
+      console.error('Erreur de vérification d\'authentification:', error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      set({ 
+        user: null, 
+        token: null, 
+        isAuthenticated: false,
+        error: error.message
+      });
+      return false;
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  // Initialiser l'authentification au chargement de l'application
+  initializeAuth: async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      return await useAuthStore.getState().checkAuth();
+    }
+    return false;
+  }
+}));
+
+// Initialiser l'authentification au chargement du store
+useAuthStore.getState().initializeAuth();

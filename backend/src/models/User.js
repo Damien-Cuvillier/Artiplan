@@ -3,7 +3,11 @@ const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: {
+    type: String,
+    required: [true, 'Veuillez fournir un mot de passe'],
+    select: false
+  },
   nom: String,
   prenom: String,
   role: { type: String, enum: ['admin', 'gestionnaire', 'technicien'], default: 'technicien' },
@@ -21,8 +25,9 @@ userSchema.pre('save', async function(next) {
 });
 
 // Méthode pour comparer les mots de passe
-userSchema.methods.comparePassword = async function(candidatePassword) {
-    return await bcrypt.compare(candidatePassword, this.password);
-  };
+userSchema.methods.correctPassword = async function(candidatePassword, userPassword) {
+  return await bcrypt.compare(candidatePassword, userPassword);
+};
+
 
 module.exports = mongoose.model('User', userSchema);

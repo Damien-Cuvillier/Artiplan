@@ -4,12 +4,17 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Save, ArrowLeft, Upload, X } from 'lucide-react'
 import { useChantierStore } from '../store/chantierStore'
+import { useAuthStore } from '../store/authStore'
+import { API_BASE_URL } from '../config/api';
 
 const InterventionForm = () => {
   const { chantierId, id } = useParams()
   const navigate = useNavigate()
-  const { addIntervention, updateIntervention, interventions, fetchChantierById, currentChantier } = useChantierStore()
+  const { addIntervention, updateIntervention, interventions, fetchChantierById, currentChantier, isLoading: isLoadingChantier } = useChantierStore()
+  const { user } = useAuthStore() 
+  const currentUser = user 
   const [images, setImages] = useState([])
+  const [submitError, setSubmitError] = useState(null)
   
   const isEditing = !!id
   const existingIntervention = isEditing ? interventions.find(i => i.id === parseInt(id)) : null
@@ -17,7 +22,8 @@ const InterventionForm = () => {
   const { 
     register, 
     handleSubmit, 
-    formState: { errors }
+    formState: { errors },
+    reset
   } = useForm({
     defaultValues: existingIntervention || {}
   })
@@ -28,21 +34,41 @@ const InterventionForm = () => {
     }
   }, [chantierId, fetchChantierById])
 
-  const onSubmit = (data) => {
-    const interventionData = {
-      ...data,
-      chantierId: parseInt(chantierId),
-      images: images
+  useEffect(() => {
+    if (existingIntervention) {
+      reset(existingIntervention)
     }
+  }, [existingIntervention, reset])
 
-    if (isEditing) {
-      updateIntervention(parseInt(id), interventionData)
-    } else {
-      addIntervention(interventionData)
+  const onSubmit = async (data) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/interventions/chantier/${chantierId}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          titre: data.titre,
+          description: data.description,
+          date_intervention: data.date || new Date().toISOString(),
+          duree: data.duree || 0,
+          statut: data.statut || 'planifiee'
+        })
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la création de l\'intervention');
+      }
+  
+      // Rediriger vers la page du chantier
+      navigate(`/chantiers/${chantierId}`);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde de l\'intervention:', error);
+      setSubmitError(error.message || 'Une erreur est survenue lors de la sauvegarde');
     }
-
-    navigate(`/chantier/${chantierId}`)
-  }
+  };
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files)
@@ -59,181 +85,201 @@ const InterventionForm = () => {
     setImages(prev => prev.filter((_, i) => i !== index))
   }
 
+  if (isLoadingChantier) {
+    return <div className="flex justify-center items-center h-64">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+    </div>
+  }
+
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEditing ? 'Modifier l\'intervention' : 'Nouvelle intervention'}
-            </h1>
-            {currentChantier && (
-              <p className="text-gray-600">Chantier: {currentChantier.name}</p>
-            )}
-          </div>
-        </div>
+    <div className="max-w-3xl mx-auto p-6 bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">
+          {isEditing ? 'Modifier l\'intervention' : 'Nouvelle intervention'}
+        </h2>
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Retour
+        </button>
       </div>
 
+      {submitError && (
+        <div className="mb-4 p-4 bg-red-50 text-red-700 rounded-md">
+          {submitError}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-6">Informations générales</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Titre de l'intervention *
-              </label>
-              <input
-                {...register('title', { required: 'Titre requis' })}
-                type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Ex: Réparation plomberie"
-              />
-              {errors.title && (
-                <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Type d'intervention
-              </label>
-              <select
-                {...register('type')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="maintenance">Maintenance</option>
-                <option value="reparation">Réparation</option>
-                <option value="installation">Installation</option>
-                <option value="controle">Contrôle</option>
-                <option value="nettoyage">Nettoyage</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Date d'intervention
-              </label>
-              <input
-                {...register('date')}
-                type="date"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Durée (heures)
-              </label>
-              <input
-                {...register('duration', { 
-                  min: { value: 0.5, message: 'Minimum 0.5 heure' }
-                })}
-                type="number"
-                step="0.5"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="2.5"
-              />
-              {errors.duration && (
-                <p className="mt-1 text-sm text-red-600">{errors.duration.message}</p>
-              )}
-            </div>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <div>
+            <label htmlFor="titre" className="block text-sm font-medium text-gray-700">
+              Titre *
+            </label>
+            <input
+              type="text"
+              id="titre"
+              {...register('titre', { required: 'Le titre est requis' })}
+              className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm ${
+                errors.titre ? 'border-red-500' : ''
+              }`}
+            />
+            {errors.titre && (
+              <p className="mt-1 text-sm text-red-600">{errors.titre.message}</p>
+            )}
           </div>
 
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description détaillée *
+          <div>
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+              Date
             </label>
-            <textarea
-              {...register('description', { required: 'Description requise' })}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Décrivez en détail l'intervention réalisée..."
+            <input
+              type="datetime-local"
+              id="date"
+              {...register('date')}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
             />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description.message}</p>
-            )}
+          </div>
+
+          <div>
+            <label htmlFor="duree" className="block text-sm font-medium text-gray-700">
+              Durée (heures)
+            </label>
+            <input
+              type="number"
+              id="duree"
+              min="1"
+              {...register('duree', { valueAsNumber: true })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="statut" className="block text-sm font-medium text-gray-700">
+              Statut
+            </label>
+            <select
+              id="statut"
+              {...register('statut')}
+              className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-indigo-500 focus:outline-none focus:ring-indigo-500 sm:text-sm"
+            >
+              <option value="planifiee">Planifiée</option>
+              <option value="en_cours">En cours</option>
+              <option value="terminee">Terminée</option>
+              <option value="annulee">Annulée</option>
+            </select>
           </div>
         </div>
 
-        {/* Photos */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-6">Photos</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ajouter des photos
-              </label>
-              <div className="flex items-center justify-center w-full">
-                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-4 text-gray-500" />
-                    <p className="mb-2 text-sm text-gray-500">
-                      <span className="font-semibold">Cliquez pour télécharger</span> ou glissez-déposez
-                    </p>
-                    <p className="text-xs text-gray-500">PNG, JPG jusqu'à 10MB</p>
-                  </div>
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+            Description
+          </label>
+          <div className="mt-1">
+            <textarea
+              id="description"
+              rows={4}
+              {...register('description')}
+              className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+              defaultValue={''}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Photos</label>
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+            <div className="space-y-1 text-center">
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                stroke="currentColor"
+                fill="none"
+                viewBox="0 0 48 48"
+                aria-hidden="true"
+              >
+                <path
+                  d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <div className="flex text-sm text-gray-600">
+                <label
+                  htmlFor="file-upload"
+                  className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
+                >
+                  <span>Téléverser des fichiers</span>
                   <input
+                    id="file-upload"
+                    name="file-upload"
                     type="file"
-                    multiple
-                    accept="image/*"
+                    className="sr-only"
                     onChange={handleImageUpload}
-                    className="hidden"
+                    multiple
                   />
                 </label>
+                <p className="pl-1">ou glisser-déposer</p>
               </div>
+              <p className="text-xs text-gray-500">PNG, JPG, GIF jusqu'à 10MB</p>
             </div>
-
-            {images.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {images.map((image, index) => (
-                  <div key={index} className="relative">
-                    <img
-                      src={image}
-                      alt={`Photo ${index + 1}`}
-                      className="w-full h-24 object-cover rounded-md"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeImage(index)}
-                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
+          
+          {images.length > 0 && (
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {images.map((img, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={img}
+                    alt={`Preview ${index + 1}`}
+                    className="h-32 w-full object-cover rounded-md"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex justify-end space-x-4">
+        <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             Annuler
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+            disabled={isLoadingChantier}
+            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
           >
-            <Save className="h-4 w-4 mr-2" />
-            {isEditing ? 'Mettre à jour' : 'Enregistrer'}
+            {isLoadingChantier ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Enregistrement...
+              </>
+            ) : (
+              <>
+                <Save className="-ml-1 mr-2 h-4 w-4" />
+                {isEditing ? 'Mettre à jour' : 'Créer l\'intervention'}
+              </>
+            )}
           </button>
         </div>
       </form>
     </div>
   )
 }
-
-export default InterventionForm
+export default InterventionForm;
