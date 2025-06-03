@@ -84,7 +84,6 @@ export const useChantierStore = create((set, get) => ({
   },
 
   // Créer un nouveau chantier
-  // Dans votre store chantierStore.js
 createChantier: async (chantierData) => {
   set({ isLoading: true, error: null });
   try {
@@ -201,22 +200,43 @@ createChantier: async (chantierData) => {
   },
 
   // Récupérer toutes les interventions (depuis le store ou l'API si nécessaire)
-  getAllInterventions: async () => {
-    const { interventions } = get();
+  // Dans chantierStore.js
+getAllInterventions: async () => {
+  try {
+    const token = localStorage.getItem('token');
+    console.log('Token utilisé pour la requête:', token ? 'Présent' : 'Manquant');
     
-    // Si nous avons déjà des interventions en mémoire, on les retourne
-    if (interventions && interventions.length > 0) {
-      return interventions;
+    const response = await fetch(`${API_BASE_URL}/api/interventions`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const data = await response.json();
+    console.log('Réponse de l\'API:', { status: response.status, data });
+
+    if (!response.ok) {
+      throw new Error(data.message || `Erreur HTTP: ${response.status}`);
     }
+
+    // S'assurer que nous retournons toujours un tableau
+    const interventions = Array.isArray(data.data?.interventions) 
+      ? data.data.interventions 
+      : (Array.isArray(data.data) ? data.data : []);
     
-    // Sinon, on les récupère depuis l'API
-    try {
-      return await get().fetchAllInterventions();
-    } catch (error) {
-      console.error('Erreur lors de la récupération des interventions:', error);
-      return [];
-    }
-  },
+    console.log(`${interventions.length} interventions chargées`);
+    return interventions;
+    
+  } catch (error) {
+    console.error('Erreur détaillée:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response
+    });
+    throw error;
+  }
+},
 
   // Récupérer les interventions d'un chantier
   fetchInterventionsByChantier: async (chantierId) => {

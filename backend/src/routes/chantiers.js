@@ -3,7 +3,6 @@ const router = express.Router();
 const { protect, restrictTo } = require('../middleware/authMiddleware');
 const { validateChantier } = require('../validators/chantier.validator');
 const Chantier = require('../models/Chantier');
-
 const chantierController = require('../controllers/chantierController');
 // Appliquer l'authentification à toutes les routes
 router.use(protect);

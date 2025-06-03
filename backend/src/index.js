@@ -9,7 +9,7 @@ const chantiersRoutes = require('./routes/chantiers');
 const cors = require('cors');
 const app = express();
 const rateLimit = require('express-rate-limit');
-
+const interventionRoutes = require('./routes/interventions');
 // Middleware de sécurité
 securityMiddleware(app);
 
@@ -37,7 +37,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/chantiers', chantiersRoutes);
-app.use('/api/interventions', require('./routes/interventions'));
+app.use('/api/interventions', interventionRoutes);
 // Route de test
 app.get('/', (req, res) => {
   res.send('API Gestion de Chantiers - Documentation à venir');

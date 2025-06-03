@@ -67,15 +67,59 @@ const chantierSchema = new mongoose.Schema({
     enum: ['en_attente', 'en_cours', 'termine', 'annule'], 
     default: 'en_attente' 
   },
-  responsable_id: { 
-    type: mongoose.Schema.Types.ObjectId, 
+  progression: {
+    type: Number,
+    default: 0,
+    min: [0, 'La progression ne peut pas être inférieure à 0'],
+    max: [100, 'La progression ne peut pas être supérieure à 100']
+  },
+  responsable_id: {
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'Un responsable est requis']
   }
-}, { 
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// Pre-save hook to update progression if chantier status is 'termine'
+chantierSchema.pre('save', function(next) {
+  // 'this' refers to the document being saved
+  if (this.isModified('statut') && this.statut === 'termine') {
+    this.progression = 100;
+  }
+  next();
+});
+
+// Static method to update chantier progress
+chantierSchema.statics.updateChantierProgress = async function(chantierId) {
+  const Intervention = mongoose.model('Intervention'); // Get the Intervention model
+
+  try {
+    const interventions = await Intervention.find({ chantier_id: chantierId });
+    const totalInterventions = interventions.length;
+    
+    if (totalInterventions === 0) {
+      // No interventions, progress is 0 or 100 if chantier itself is marked 'termine'
+      // For now, let's set to 0 if no interventions.
+      // Or, if you want a chantier to be 100% if it has no interventions but is 'termine':
+      // const chantier = await this.findById(chantierId);
+      // chantier.progression = chantier.statut === 'termine' ? 100 : 0;
+      await this.findByIdAndUpdate(chantierId, { progression: 0 });
+      return;
+    }
+
+    const completedInterventions = interventions.filter(intervention => intervention.statut === 'terminee').length;
+    const progress = Math.round((completedInterventions / totalInterventions) * 100);
+
+    await this.findByIdAndUpdate(chantierId, { progression: progress });
+
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de la progression du chantier:', error);
+    // Handle error appropriately, maybe re-throw or log
+  }
+};
 
 module.exports = mongoose.model('Chantier', chantierSchema);

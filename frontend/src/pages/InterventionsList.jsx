@@ -173,8 +173,9 @@ const InterventionsList = () => {
                     </div>
                   </div>
                   <Link
-                    to={`/chantier/${intervention.chantierId}`}
+                    to={`/chantiers/${intervention.chantier_id._id}#interventions`}
                     className="p-1 text-gray-400 hover:text-gray-600"
+                    title="Voir le chantier"
                   >
                     <Eye className="h-5 w-5" />
                   </Link>

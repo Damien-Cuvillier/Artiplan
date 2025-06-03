@@ -39,4 +39,23 @@ const interventionSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+interventionSchema.post('save', async function() {
+  // 'this' refers to the current intervention document
+  // We need to access the Chantier model to update it
+  const Chantier = mongoose.model('Chantier');
+  if (this.chantier_id) {
+    await Chantier.updateChantierProgress(this.chantier_id);
+  }
+});
+
+// Hook for findOneAndDelete and findByIdAndDelete
+interventionSchema.post(['findOneAndDelete', 'findByIdAndDelete'], async function(doc) {
+  // 'doc' is the deleted document
+  if (doc && doc.chantier_id) {
+    const Chantier = mongoose.model('Chantier');
+    await Chantier.updateChantierProgress(doc.chantier_id);
+  }
+});
+
+
 module.exports = mongoose.model('Intervention', interventionSchema);

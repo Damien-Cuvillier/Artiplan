@@ -414,4 +414,5 @@ const PDFPreview = ({ chantier, interventions = [] }) => {
   )
 }
 
-export default PDFPreview
+export { ChantierPDFDocument as Document };
+export default ChantierPDFDocument;
