@@ -3,8 +3,9 @@ const AppError = require('../utils/appError');
 const catchAsync = require('../utils/catchAsync');
 const Chantier = require('../models/Chantier');
 const authController = require('../controllers/authController');
+
 // src/controllers/interventionController.js
-exports.createIntervention = async (req, res) => {
+exports.createIntervention = catchAsync(async (req, res, next) => {
   try {
     const { titre, description, date_intervention, duree, statut } = req.body;
     const technicien_id = req.user.id;
@@ -51,7 +52,8 @@ exports.createIntervention = async (req, res) => {
       message: error.message || 'Erreur lors de la création de l\'intervention'
     });
   }
-};
+  await intervention.save();
+});
 
 exports.getInterventionsByChantier = async (req, res) => {
   try {
@@ -106,37 +108,74 @@ exports.getIntervention = catchAsync(async (req, res, next) => {
 
 // Mettre à jour une intervention
 exports.updateIntervention = catchAsync(async (req, res, next) => {
-  const updatedIntervention = await Intervention.findByIdAndUpdate(
+  console.log('=== Requête de mise à jour reçue ===');
+  console.log('ID de l\'intervention:', req.params.id);
+  console.log('Corps de la requête:', req.body);
+  console.log('Headers:', req.headers);
+  console.log('Token:', req.headers.authorization ? req.headers.authorization.substring(0, 20) + '...' : 'Non fourni');
+
+  const intervention = await Intervention.findByIdAndUpdate(
     req.params.id,
     req.body,
     {
       new: true,
       runValidators: true
     }
-  );
+  ).populate('chantier_id');
   
-  if (!updatedIntervention) {
+  console.log('Intervention après mise à jour:', intervention);
+  
+  if (!intervention) {
+    console.log('Aucune intervention trouvée avec cet ID');
     return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
+  }
+
+  // Mettre à jour la progression du chantier
+  if (intervention.chantier_id) {
+    console.log('Mise à jour de la progression du chantier:', intervention.chantier_id._id);
+    await Chantier.updateChantierProgress(intervention.chantier_id._id);
   }
   
   res.status(200).json({
     status: 'success',
     data: {
-      intervention: updatedIntervention
+      intervention
     }
   });
 });
 
 // Supprimer une intervention
 exports.deleteIntervention = catchAsync(async (req, res, next) => {
-  const intervention = await Intervention.findByIdAndDelete(req.params.id);
+  console.log('=== Tentative de suppression ===');
+  console.log('ID de l\'intervention à supprimer:', req.params.id);
   
-  if (!intervention) {
-    return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
+  try {
+    const intervention = await Intervention.findById(req.params.id);
+    
+    if (!intervention) {
+      console.log('Aucune intervention trouvée avec cet ID');
+      return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
+    }
+
+    console.log('Intervention trouvée:', intervention);
+    const chantierId = intervention.chantier_id;
+    
+    // Utilisation de deleteOne() au lieu de remove()
+    await Intervention.deleteOne({ _id: req.params.id });
+    console.log('Intervention supprimée avec succès');
+
+    // Mettre à jour la progression du chantier
+    if (chantierId) {
+      console.log('Mise à jour de la progression du chantier:', chantierId);
+      await Chantier.updateChantierProgress(chantierId);
+    }
+    
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de l\'intervention:', error);
+    next(error);
   }
-  
-  res.status(204).json({
-    status: 'success',
-    data: null
-  });
 });

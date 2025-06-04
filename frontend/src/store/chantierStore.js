@@ -301,6 +301,9 @@ getAllInterventions: async () => {
 
   // Mettre à jour une intervention
   updateIntervention: async (id, interventionData) => {
+    console.log('URL de la requête:', `${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`);
+  console.log('Headers:', getAuthHeader());
+  console.log('Données envoyées:', interventionData);
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`, {
@@ -332,21 +335,29 @@ getAllInterventions: async () => {
   deleteIntervention: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`, {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/interventions/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeader(),
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Erreur lors de la suppression de l\'intervention');
+        throw new Error(errorData.message || 'Erreur lors de la suppression');
       }
-
+  
+      // Mettre à jour l'état local
       set(state => ({
-        interventions: state.interventions.filter(intervention => intervention._id !== id),
+        interventions: state.interventions.filter(i => i._id !== id),
         isLoading: false
       }));
+  
+      return true;
     } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }

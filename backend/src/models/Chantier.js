@@ -95,30 +95,33 @@ chantierSchema.pre('save', function(next) {
 
 // Static method to update chantier progress
 chantierSchema.statics.updateChantierProgress = async function(chantierId) {
-  const Intervention = mongoose.model('Intervention'); // Get the Intervention model
-
   try {
-    const interventions = await Intervention.find({ chantier_id: chantierId });
-    const totalInterventions = interventions.length;
+    const [interventions, chantier] = await Promise.all([
+      this.model('Intervention').find({ chantier_id: chantierId }),
+      this.findById(chantierId)
+    ]);
     
-    if (totalInterventions === 0) {
-      // No interventions, progress is 0 or 100 if chantier itself is marked 'termine'
-      // For now, let's set to 0 if no interventions.
-      // Or, if you want a chantier to be 100% if it has no interventions but is 'termine':
-      // const chantier = await this.findById(chantierId);
-      // chantier.progression = chantier.statut === 'termine' ? 100 : 0;
-      await this.findByIdAndUpdate(chantierId, { progression: 0 });
-      return;
+    // Si le chantier est marqué comme terminé, forcer la progression à 100%
+    if (chantier.statut === 'termine') {
+      chantier.progression = 100;
+      return await chantier.save();
     }
-
-    const completedInterventions = interventions.filter(intervention => intervention.statut === 'terminee').length;
-    const progress = Math.round((completedInterventions / totalInterventions) * 100);
-
-    await this.findByIdAndUpdate(chantierId, { progression: progress });
-
+    
+    // Sinon calculer la progression normale
+    const totalInterventions = interventions.length;
+    if (totalInterventions === 0) {
+      chantier.progression = 0;
+      return await chantier.save();
+    }
+    
+    const completedInterventions = interventions.filter(i => i.statut === 'terminee').length;
+    chantier.progression = Math.round((completedInterventions / totalInterventions) * 100);
+    
+    return await chantier.save();
+    
   } catch (error) {
     console.error('Erreur lors de la mise à jour de la progression du chantier:', error);
-    // Handle error appropriately, maybe re-throw or log
+    throw error; // Renvoyer l'erreur pour une gestion plus poussée
   }
 };
 

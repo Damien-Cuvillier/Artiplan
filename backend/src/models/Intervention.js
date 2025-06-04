@@ -49,11 +49,16 @@ interventionSchema.post('save', async function() {
 });
 
 // Hook for findOneAndDelete and findByIdAndDelete
-interventionSchema.post(['findOneAndDelete', 'findByIdAndDelete'], async function(doc) {
-  // 'doc' is the deleted document
+interventionSchema.post(['findOneAndDelete', 'findOneAndRemove'], async function(doc) {
   if (doc && doc.chantier_id) {
+    console.log('Post-remove hook - Mise à jour du chantier:', doc.chantier_id);
     const Chantier = mongoose.model('Chantier');
-    await Chantier.updateChantierProgress(doc.chantier_id);
+    try {
+      await Chantier.updateChantierProgress(doc.chantier_id);
+      console.log('Progression du chantier mise à jour avec succès');
+    } catch (error) {
+      console.error('Erreur dans le post-remove hook:', error);
+    }
   }
 });
 

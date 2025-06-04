@@ -2,9 +2,21 @@
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useChantierStore } from '../store/chantierStore';
 
 const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const { deleteIntervention, isLoading: isDeleting } = useChantierStore();
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteIntervention(id);
+      setConfirmDelete(null); // Réinitialiser la confirmation après suppression
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      // Vous pourriez ajouter une notification d'erreur ici
+    }
+  };
 
   if (isLoading) {
     return <div className="text-center py-4">Chargement des interventions...</div>;
@@ -49,23 +61,47 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
                   </p>
                 )}
               </div>
-              <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
                 <Link
                   to={`/chantiers/${chantierId}/interventions/${intervention._id}/modifier`}
-                  className="text-indigo-600 hover:text-indigo-900"
+                  className="text-indigo-600 hover:text-indigo-900 p-1"
+                  title="Modifier"
                 >
                   <PencilIcon className="h-5 w-5" />
                 </Link>
-                <button
-                  onClick={() => setConfirmDelete(intervention._id)}
-                  className="text-red-600 hover:text-red-900"
-                >
-                  {confirmDelete === intervention._id ? (
-                    <span className="text-xs">Confirmer</span>
-                  ) : (
+                
+                {confirmDelete === intervention._id ? (
+                  <div className="flex items-center space-x-2 bg-red-50 px-2 py-1 rounded">
+                    <span className="text-xs text-red-700">Confirmer ?</span>
+                    <button
+                      onClick={() => handleDelete(intervention._id)}
+                      disabled={isDeleting}
+                      className={`text-xs px-2 py-1 rounded ${
+                        isDeleting 
+                          ? 'bg-red-300 text-white cursor-not-allowed' 
+                          : 'bg-red-600 text-white hover:bg-red-700'
+                      }`}
+                    >
+                      {isDeleting ? 'Suppression...' : 'Oui'}
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      className="text-xs px-2 py-1 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                      disabled={isDeleting}
+                    >
+                      Non
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(intervention._id)}
+                    className="text-red-600 hover:text-red-900 p-1"
+                    title="Supprimer"
+                    disabled={isDeleting}
+                  >
                     <TrashIcon className="h-5 w-5" />
-                  )}
-                </button>
+                  </button>
+                )}
               </div>
             </div>
           </div>

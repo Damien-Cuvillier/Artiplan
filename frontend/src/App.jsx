@@ -12,6 +12,7 @@ import InterventionsList from './pages/InterventionsList'
 import InterventionForm from './pages/InterventionForm'
 import Settings from './pages/Settings.jsx'
 import NotFound from './pages/NotFound'
+import EditIntervention from './components/EditIntervention'
 
 // Layout
 import Layout from './components/layout/Layout'
@@ -115,9 +116,10 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/intervention/edit/:id" element={
+          <Route path="/chantiers/:chantierId/interventions/:id/modifier" element={
             <ProtectedRoute>
               <Layout>
+                <EditIntervention />
                 <InterventionForm />
               </Layout>
             </ProtectedRoute>

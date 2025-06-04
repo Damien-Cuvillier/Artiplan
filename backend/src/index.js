@@ -10,6 +10,7 @@ const cors = require('cors');
 const app = express();
 const rateLimit = require('express-rate-limit');
 const interventionRoutes = require('./routes/interventions');
+const createIndexes = require('./models/index');
 // Middleware de sécurité
 securityMiddleware(app);
 
@@ -56,7 +57,7 @@ mongoose.connect(process.env.MONGODB_URI)
     console.error('Erreur de connexion à MongoDB:', err);
     process.exit(1);
   });
-  
+  createIndexes();
 // Démarrage du serveur
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
