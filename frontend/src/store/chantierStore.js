@@ -167,6 +167,7 @@ createChantier: async (chantierData) => {
         isLoading: false
       }));
     } catch (error) {
+      console.error('Erreur dans deleteChantier:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -224,6 +225,21 @@ getAllInterventions: async () => {
     const interventions = Array.isArray(data.data?.interventions) 
       ? data.data.interventions 
       : (Array.isArray(data.data) ? data.data : []);
+    
+    // Log détaillé de la structure des interventions
+    console.log('Détail complet des interventions reçues:');
+    interventions.forEach((interv, index) => {
+      console.group(`Intervention ${index} (${interv._id})`);
+      console.log('Titre:', interv.titre);
+      console.log('Toutes les propriétés:');
+      
+      // Afficher chaque propriété de l'intervention
+      Object.entries(interv).forEach(([key, value]) => {
+        console.log(`- ${key}:`, value);
+      });
+      
+      console.groupEnd();
+    });
     
     console.log(`${interventions.length} interventions chargées`);
     return interventions;

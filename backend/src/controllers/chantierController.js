@@ -11,7 +11,8 @@ exports.creerChantier = async (req, res) => {
       budget, 
       priorite, 
       adresse, 
-      description 
+      description,
+      statut 
     } = req.body;
 
     // Création du nouveau chantier
@@ -22,10 +23,10 @@ exports.creerChantier = async (req, res) => {
       date_fin: date_fin || null,
       budget,
       priorite: priorite || 'moyenne',
+      statut: statut || (priorite === 'critique' ? 'en_cours' : 'en_attente'), // Modification ici
       adresse,
       description: description || '',
-      responsable_id: req.user._id, // L'utilisateur connecté devient le responsable
-      statut: priorite === 'critique' ? 'en_cours' : 'en_attente'
+      responsable_id: req.user._id
     });
 
     // Sauvegarde du chantier

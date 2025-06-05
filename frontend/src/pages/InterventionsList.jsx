@@ -3,12 +3,9 @@ import { Link } from 'react-router-dom'
 import { 
   Search, 
   Filter, 
-  Plus, 
   Calendar,
   Clock,
-  FileText,
   Building,
-  Edit,
   Eye
 } from 'lucide-react'
 import { useChantierStore } from '../store/chantierStore'
@@ -20,6 +17,29 @@ const InterventionsList = () => {
   const [interventions, setInterventions] = useState([])
   const [isLoadingInterventions, setIsLoadingInterventions] = useState(false)
   const [error, setError] = useState(null)
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      planifiee: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Planifiée' },
+      en_cours: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'En cours' },
+      terminee: { bg: 'bg-green-100', text: 'text-green-800', label: 'Terminée' },
+      annulee: { bg: 'bg-red-100', text: 'text-red-800', label: 'Annulée' },
+      default: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Inconnu' }
+    };
+    return statusConfig[status] || statusConfig.default;
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Date non spécifiée';
+    const date = new Date(dateString);
+    return date.toLocaleString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -73,7 +93,7 @@ const InterventionsList = () => {
     if (!intervention) return false;
     
     const matchesSearch = 
-      (intervention.type?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (intervention.titre?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (intervention.description?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (intervention.chantierName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     
@@ -82,15 +102,6 @@ const InterventionsList = () => {
     return matchesSearch && matchesType
   })
 
-  const getTypeColor = (type) => {
-    const colors = {
-      maintenance: 'bg-blue-100 text-blue-800',
-      reparation: 'bg-red-100 text-red-800',
-      installation: 'bg-green-100 text-green-800',
-      inspection: 'bg-yellow-100 text-yellow-800'
-    }
-    return colors[type] || 'bg-gray-100 text-gray-800'
-  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -139,49 +150,66 @@ const InterventionsList = () => {
               Aucune intervention trouvée
             </p>
           ) : (
-            filteredInterventions.map((intervention) => (
-              <div key={intervention.id} className="p-6 hover:bg-gray-50">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-  getTypeColor(intervention?.type || '')
-}`}>
-  {intervention?.type ? (
-    intervention.type.charAt(0).toUpperCase() + intervention.type.slice(1)
-  ) : 'Non spécifié'}
-</span>
-                      <Link 
-                        to={`/chantier/${intervention.chantierId}`}
-                        className="text-sm text-blue-600 hover:text-blue-800"
-                      >
-                        {intervention.chantierName}
-                      </Link>
-                    </div>
-                    <p className="mt-2 text-gray-600">{intervention.description}</p>
-                    <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                      <span className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        {new Date(intervention.date).toLocaleDateString()}
-                      </span>
-                      {intervention.duration && (
-                        <span className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {intervention.duration}h
+            filteredInterventions.map((intervention) => {
+              const status = getStatusBadge(intervention.statut);
+              
+              return (
+                <div key={intervention._id} className="p-6 hover:bg-gray-50">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${status.bg} ${status.text}`}>
+                          {status.label}
                         </span>
+                      </div>
+                      
+                      <h3 className="text-lg font-medium text-gray-900">
+                        {intervention.titre || 'Sans titre'}
+                      </h3>
+                      
+                      <p className="mt-1 text-sm text-gray-600">
+                        {intervention.description}
+                      </p>
+                      
+                      <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                        <div className="flex items-center">
+                          <Calendar className="h-4 w-4 mr-1 text-gray-400" />
+                          {formatDate(intervention.date_intervention || intervention.date)}
+                        </div>
+                        {intervention.duree > 0 && (
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1 text-gray-400" />
+                            {intervention.duree} h
+                          </div>
+                        )}
+                      </div>
+                      
+                      {intervention.chantierId && (
+                        <div className="mt-2">
+                          <Link 
+                            to={`/chantier/${intervention.chantierId}`}
+                            className="inline-flex items-center text-sm text-blue-600 hover:text-blue-800"
+                          >
+                            <Building className="h-4 w-4 mr-1" />
+                            {intervention.chantierName || 'Voir le chantier'}
+                          </Link>
+                        </div>
                       )}
                     </div>
+                    
+                    {intervention.chantier_id?._id ? (
+                      <Link
+                        to={`/chantiers/${intervention.chantier_id._id}#interventions`}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                        title="Voir le chantier"
+                      >
+                        <Eye className="h-5 w-5" />
+                      </Link>
+                    ) : null}
                   </div>
-                  <Link
-                    to={`/chantiers/${intervention.chantier_id._id}#interventions`}
-                    className="p-1 text-gray-400 hover:text-gray-600"
-                    title="Voir le chantier"
-                  >
-                    <Eye className="h-5 w-5" />
-                  </Link>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

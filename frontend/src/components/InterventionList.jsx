@@ -4,6 +4,29 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useChantierStore } from '../store/chantierStore';
 
+const getStatusBadge = (status) => {
+  const statusConfig = {
+    planifiee: { bg: 'bg-yellow-100', text: 'text-yellow-800', label: 'Planifiée' },
+    en_cours: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'En cours' },
+    terminee: { bg: 'bg-green-100', text: 'text-green-800', label: 'Terminée' },
+    annulee: { bg: 'bg-red-100', text: 'text-red-800', label: 'Annulée' },
+    default: { bg: 'bg-gray-100', text: 'text-gray-800', label: 'Inconnu' }
+  };
+  return statusConfig[status] || statusConfig.default;
+};
+
+const formatDate = (dateString) => {
+  if (!dateString) return 'Date non spécifiée';
+  const date = new Date(dateString);
+  return date.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const { deleteIntervention, isLoading: isDeleting } = useChantierStore();
@@ -11,10 +34,9 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
   const handleDelete = async (id) => {
     try {
       await deleteIntervention(id);
-      setConfirmDelete(null); // Réinitialiser la confirmation après suppression
+      setConfirmDelete(null);
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
-      // Vous pourriez ajouter une notification d'erreur ici
     }
   };
 
@@ -22,7 +44,6 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
     return <div className="text-center py-4">Chargement des interventions...</div>;
   }
 
-  // S'assurer que interventions est un tableau
   const safeInterventions = Array.isArray(interventions) ? interventions : [];
 
   if (safeInterventions.length === 0) {
@@ -36,11 +57,12 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
   return (
     <div className="space-y-4">
       {safeInterventions.map((intervention) => {
-        // S'assurer que l'intervention est valide
         if (!intervention || typeof intervention !== 'object') {
           console.warn('Intervention invalide:', intervention);
           return null;
         }
+        
+        const status = getStatusBadge(intervention.statut);
         
         return (
           <div
@@ -48,20 +70,41 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
             className="bg-white shadow overflow-hidden rounded-lg p-4"
           >
             <div className="flex justify-between items-start">
-              <div>
-                <h4 className="font-medium text-gray-900">
-                  {intervention.titre || 'Sans titre'}
-                </h4>
-                <p className="text-sm text-gray-500 mt-1">
-                  {intervention.date ? new Date(intervention.date).toLocaleDateString('fr-FR') : 'Date non spécifiée'}
-                </p>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium text-gray-900">
+                    {intervention.titre || 'Sans titre'}
+                  </h4>
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${status.bg} ${status.text}`}>
+                    {status.label}
+                  </span>
+                </div>
+                
+                <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                  <div className="flex items-center">
+                    <svg className="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {formatDate(intervention.date_intervention || intervention.date)}
+                  </div>
+                  {intervention.duree > 0 && (
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {intervention.duree} h
+                    </div>
+                  )}
+                </div>
+                
                 {intervention.description && (
-                  <p className="text-sm text-gray-600 mt-2">
+                  <p className="mt-2 text-sm text-gray-600">
                     {intervention.description}
                   </p>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
+              
+              <div className="flex items-center space-x-2 ml-4">
                 <Link
                   to={`/chantiers/${chantierId}/interventions/${intervention._id}/modifier`}
                   className="text-indigo-600 hover:text-indigo-900 p-1"

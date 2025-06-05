@@ -42,6 +42,11 @@ const InterventionForm = () => {
 
   const onSubmit = async (data) => {
     try {
+      // Formater la date correctement
+      const dateIntervention = data.date 
+        ? new Date(data.date).toISOString()
+        : new Date().toISOString();
+
       const response = await fetch(`${API_BASE_URL}/api/interventions/chantier/${chantierId}`, {
         method: 'POST',
         headers: {
@@ -51,9 +56,10 @@ const InterventionForm = () => {
         body: JSON.stringify({
           titre: data.titre,
           description: data.description,
-          date_intervention: data.date || new Date().toISOString(),
-          duree: data.duree || 0,
-          statut: data.statut || 'planifiee'
+          date_intervention: dateIntervention,
+          duree: parseInt(data.duree) || 0,
+          statut: data.statut || 'planifiee',
+          type: data.type || 'maintenance' // Assurez-vous d'ajouter le type si nécessaire
         })
       });
   
