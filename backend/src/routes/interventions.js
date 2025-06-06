@@ -10,13 +10,11 @@ const Chantier = require('../models/Chantier'); // Assurez-vous que le chemin es
 // Protéger toutes les routes
 router.use(protect);
 
-// Routes pour les interventions
-router.route('/')
-  .post(
-    restrictTo('admin', 'gestionnaire', 'technicien'),
-    validateIntervention,
-    interventionController.createIntervention
-  );
+router.post('/chantier/:chantierId', 
+  restrictTo('admin', 'gestionnaire', 'technicien'),
+  validateIntervention,
+  interventionController.createIntervention
+);
 
 // Récupérer les interventions par chantier
 router.route('/chantier/:chantierId')

@@ -154,23 +154,28 @@ createChantier: async (chantierData) => {
   deleteChantier: async (id) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHANTIERS}/${id}`, {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/chantiers/${id}`, {
         method: 'DELETE',
-        headers: getAuthHeader(),
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Erreur lors de la suppression du chantier');
       }
-
+  
+      // Retirer le chantier supprimé de la liste
       set(state => ({
         chantiers: state.chantiers.filter(chantier => chantier._id !== id),
-        currentChantier: state.currentChantier?._id === id ? null : state.currentChantier,
         isLoading: false
       }));
+  
+      return true;
     } catch (error) {
-      console.error('Erreur dans deleteChantier:', error);
+      console.error('Erreur deleteChantier:', error);
       set({ error: error.message, isLoading: false });
       throw error;
     }
@@ -289,16 +294,16 @@ getAllInterventions: async () => {
   },
 
   // Ajouter une intervention
-  addIntervention: async (interventionData) => { 
+  addIntervention: async (interventionData) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}`, {
+      const response = await fetch(`${API_BASE_URL}/api/interventions/chantier/${interventionData.chantier_id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...getAuthHeader()
         },
-        body: JSON.stringify(interventionData),
+        body: JSON.stringify(interventionData)
       });
   
       if (!response.ok) {
@@ -308,10 +313,10 @@ getAllInterventions: async () => {
   
       const newIntervention = await response.json();
       set(state => ({
-        interventions: [...state.interventions, newIntervention],
+        interventions: [...state.interventions, newIntervention.data.intervention],
         isLoading: false
       }));
-      return newIntervention;
+      return newIntervention.data.intervention;
     } catch (error) {
       set({ error: error.message, isLoading: false });
       throw error;

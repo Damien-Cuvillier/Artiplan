@@ -88,7 +88,24 @@ const chantierSchema = new mongoose.Schema({
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
-
+chantierSchema.pre('deleteOne', { document: true, query: false }, async function(next) {
+  console.log(`[Middleware] Début de la suppression en cascade pour le chantier ${this._id}`);
+  try {
+    // Vérifions d'abord si ce middleware est bien appelé
+    console.log(`[Middleware] Recherche des interventions pour le chantier ${this._id}`);
+    
+    // Utilisez this.model() pour accéder au modèle Intervention
+    const result = await this.model('Intervention').deleteMany({ 
+      chantier_id: this._id 
+    });
+    
+    console.log(`[Middleware] ${result.deletedCount} interventions supprimées pour le chantier ${this._id}`);
+    next();
+  } catch (error) {
+    console.error('[Middleware] Erreur lors de la suppression des interventions:', error);
+    next(error);
+  }
+});
 // Pre-save hook to update progression if chantier status is 'termine'
 chantierSchema.pre('save', function(next) {
   // 'this' refers to the document being saved

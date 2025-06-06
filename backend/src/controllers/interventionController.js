@@ -5,11 +5,11 @@ const Chantier = require('../models/Chantier');
 const authController = require('../controllers/authController');
 
 // src/controllers/interventionController.js
-exports.createIntervention = catchAsync(async (req, res, next) => {
+exports.createIntervention = async (req, res, next) => {
   try {
-    const { titre, description, date_intervention, duree, statut } = req.body;
+    const { titre, description, date_intervention, duree, statut, type, prix } = req.body;
     const technicien_id = req.user.id;
-    const chantier_id = req.params.chantierId || req.body.chantierId;
+    const chantier_id = req.params.chantierId || req.body.chantier_id;
 
     // Vérifier que le chantier existe
     const chantier = await Chantier.findById(chantier_id);
@@ -26,23 +26,25 @@ exports.createIntervention = catchAsync(async (req, res, next) => {
       date_intervention: date_intervention || new Date(),
       duree: duree || 0,
       statut: statut || 'planifiee',
+      type: type || 'maintenance',
       technicien_id,
-      chantier_id
+      chantier_id,
+      ...(prix !== undefined && { prix: parseFloat(prix) })
     });
 
-    await intervention.save();
+    const savedIntervention = await intervention.save();
 
     // Mettre à jour le chantier avec la nouvelle intervention
     await Chantier.findByIdAndUpdate(
       chantier_id,
-      { $push: { interventions: intervention._id } },
+      { $push: { interventions: savedIntervention._id } },
       { new: true, useFindAndModify: false }
     );
 
     res.status(201).json({
       status: 'success',
       data: {
-        intervention
+        intervention: savedIntervention
       }
     });
   } catch (error) {
@@ -52,8 +54,7 @@ exports.createIntervention = catchAsync(async (req, res, next) => {
       message: error.message || 'Erreur lors de la création de l\'intervention'
     });
   }
-  await intervention.save();
-});
+};
 
 exports.getInterventionsByChantier = async (req, res) => {
   try {

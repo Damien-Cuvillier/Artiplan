@@ -106,78 +106,39 @@ useEffect(() => {
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
-      console.log('Données du formulaire:', data);
-      // Formater la date correctement
-      const dateIntervention = data.date 
-        ? new Date(data.date).toISOString()
-        : new Date().toISOString();
-    
+      
       const interventionData = {
         titre: data.titre,
         description: data.description,
-        date_intervention: dateIntervention,
+        date_intervention: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
         duree: parseInt(data.duree) || 0,
         statut: data.statut || 'planifiee',
         type: data.type || 'maintenance',
         ...(data.prix !== undefined && { prix: parseFloat(data.prix) })
       };
-    
-      const token = localStorage.getItem('token');
-      let response;
-      
+  
       if (isEditing && existingIntervention) {
-        // Mise à jour d'une intervention existante
-        console.log('ID de l\'intervention:', existingIntervention._id); // Vérifiez cet
-        response = await fetch(`${API_BASE_URL}/api/interventions/${existingIntervention._id}`, {
-          method: 'PATCH',  // Utiliser PATCH au lieu de PUT
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(interventionData)
+        // Mise à jour
+        await updateIntervention({
+          ...interventionData,
+          _id: existingIntervention._id
         });
       } else {
-        // Création d'une nouvelle intervention
-        response = await fetch(`${API_BASE_URL}/api/interventions/chantier/${chantierId}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(interventionData)
+        // Création
+        await addIntervention({
+          ...interventionData,
+          chantier_id: chantierId
         });
       }
   
-      if (!response.ok) {
-        let errorMessage = `Erreur lors de la ${isEditing ? 'mise à jour' : 'création'} de l'intervention`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          console.error('Erreur lors de la lecture du message d\'erreur:', e);
-        }
-        throw new Error(errorMessage);
-      }
-  
-      const result = await response.json();
-      const updatedIntervention = result.data || result;
-  
-      // Mettre à jour le store local
-      if (isEditing) {
-        updateIntervention(updatedIntervention);
-      } else {
-        addIntervention(updatedIntervention);
-      }
-  
-      // Rediriger vers la page du chantier
       navigate(`/chantiers/${chantierId}`);
-  } catch (error) {
-    console.error(`Erreur lors de la ${isEditing ? 'mise à jour' : 'création'} de l'intervention:`, error);
-    setSubmitError(error.message || `Une erreur est survenue lors de la ${isEditing ? 'mise à jour' : 'création'}`);
-  } finally {
-    setIsLoading(false);
-  }
-};
+    } catch (error) {
+      console.error('Erreur:', error);
+      setSubmitError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files)

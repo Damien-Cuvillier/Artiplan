@@ -52,7 +52,10 @@ interventionSchema.post('save', async function() {
     await Chantier.updateChantierProgress(this.chantier_id);
   }
 });
-
+interventionSchema.pre('deleteOne', { document: true, query: false }, function(next) {
+  console.log(`[Intervention] Suppression d'une intervention pour le chantier ${this.chantier_id}`);
+  next();
+});
 // Hook for findOneAndDelete and findByIdAndDelete
 interventionSchema.post(['findOneAndDelete', 'findOneAndRemove'], async function(doc) {
   if (doc && doc.chantier_id) {

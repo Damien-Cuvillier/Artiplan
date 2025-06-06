@@ -114,17 +114,7 @@ router.put('/:id',
 // DELETE /api/chantiers/:id - Supprimer un chantier (admin uniquement)
 router.delete('/:id', 
   restrictTo('admin'),
-  async (req, res) => {
-    try {
-      const chantier = await Chantier.findByIdAndDelete(req.params.id);
-      if (!chantier) {
-        return res.status(404).json({ message: 'Chantier non trouvé' });
-      }
-      res.json({ message: 'Chantier supprimé avec succès' });
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  }
+  chantierController.supprimerChantier
 );
 
 module.exports = router;

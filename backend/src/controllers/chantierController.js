@@ -1,4 +1,5 @@
 // src/controllers/chantierController.js
+const mongoose = require('mongoose');
 const Chantier = require('../models/Chantier');
 
 exports.creerChantier = async (req, res) => {
@@ -23,14 +24,12 @@ exports.creerChantier = async (req, res) => {
       date_fin: date_fin || null,
       budget,
       priorite: priorite || 'moyenne',
-      statut: statut || (priorite === 'critique' ? 'en_cours' : 'en_attente'), // Modification ici
+      statut: statut || (priorite === 'critique' ? 'en_cours' : 'en_attente'),
       adresse,
       description: description || '',
       responsable_id: req.user._id
     });
-    if (!req.body.date_debut && !chantier.date_debut) {
-      req.body.date_debut = new Date();
-    }
+
     // Sauvegarde du chantier
     const chantierCree = await nouveauChantier.save();
     
@@ -45,7 +44,6 @@ exports.creerChantier = async (req, res) => {
   } catch (err) {
     console.error('Erreur lors de la création du chantier:', err);
     
-    // Gestion des erreurs de validation Mongoose
     if (err.name === 'ValidationError') {
       const errors = Object.values(err.errors).map(el => ({
         field: el.path,
@@ -59,7 +57,6 @@ exports.creerChantier = async (req, res) => {
       });
     }
     
-    // Erreur de duplication de référence
     if (err.code === 11000) {
       return res.status(400).json({
         status: 'fail',
@@ -68,7 +65,6 @@ exports.creerChantier = async (req, res) => {
       });
     }
     
-    // Erreur serveur
     res.status(500).json({
       status: 'error',
       message: 'Une erreur est survenue lors de la création du chantier',
@@ -103,6 +99,52 @@ exports.getChantier = async (req, res) => {
       status: 'error',
       message: 'Une erreur est survenue lors de la récupération du chantier',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+exports.supprimerChantier = async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  
+  try {
+    console.log(`Tentative de suppression du chantier ${req.params.id}`);
+    
+    // Supprimer d'abord toutes les interventions liées à ce chantier
+    const Intervention = mongoose.model('Intervention');
+    await Intervention.deleteMany({ chantier_id: req.params.id }).session(session);
+    
+    // Puis supprimer le chantier
+    const chantier = await Chantier.findOneAndDelete(
+      { _id: req.params.id },
+      { session }
+    );
+    
+    if (!chantier) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Aucun chantier trouvé avec cet ID'
+      });
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+    
+    res.status(204).json({
+      status: 'success',
+      data: null
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    
+    console.error('Erreur lors de la suppression du chantier:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la suppression du chantier',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
