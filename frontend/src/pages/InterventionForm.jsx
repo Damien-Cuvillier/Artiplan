@@ -47,20 +47,23 @@ const InterventionForm = () => {
         ? new Date(data.date).toISOString()
         : new Date().toISOString();
 
+      const interventionData = {
+        titre: data.titre,
+        description: data.description,
+        date_intervention: dateIntervention,
+        duree: parseInt(data.duree) || 0,
+        statut: data.statut || 'planifiee',
+        type: data.type || 'maintenance',
+        ...(data.prix !== undefined && { prix: parseFloat(data.prix) })
+      };
+
       const response = await fetch(`${API_BASE_URL}/api/interventions/chantier/${chantierId}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          titre: data.titre,
-          description: data.description,
-          date_intervention: dateIntervention,
-          duree: parseInt(data.duree) || 0,
-          statut: data.statut || 'planifiee',
-          type: data.type || 'maintenance' // Assurez-vous d'ajouter le type si nécessaire
-        })
+        body: JSON.stringify(interventionData)
       });
   
       if (!response.ok) {
@@ -159,6 +162,21 @@ const InterventionForm = () => {
               min="1"
               {...register('duree', { valueAsNumber: true })}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="prix" className="block text-sm font-medium text-gray-700">
+              Prix (€) - Optionnel
+            </label>
+            <input
+              type="number"
+              id="prix"
+              min="0"
+              step="0.01"
+              {...register('prix', { valueAsNumber: true })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              placeholder="0.00"
             />
           </div>
 

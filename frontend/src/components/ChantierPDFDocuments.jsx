@@ -164,9 +164,11 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
     // Calculs
     const totalInterventions = interventions.length
     const totalHeures = interventions.reduce((acc, int) => acc + (int.duree || 0), 0)
-    const coutTotal = interventions.reduce((acc, int) => acc + (int.cout || 0), 0)
-    const interventionsTerminees = interventions.filter(int => int.statut === 'terminee').length
-    const progressionPourcentage = totalInterventions > 0 ? Math.round((interventionsTerminees / totalInterventions) * 100) : 0
+    const interventionsTerminees = interventions.filter(int => 
+      int.statut === 'termine' || int.statut === 'terminee' || int.statut === 'terminée'
+    ).length
+    const budgetTotal = chantier.budget || 0
+    const coutTotalInterventions = interventions.reduce((acc, int) => acc + (int.cout || 0), 0)
   
     // Grouper par catégorie
     const interventionsParCategorie = interventions.reduce((acc, int) => {
@@ -177,17 +179,45 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
     }, {})
   
     const formatDate = (dateString) => {
-      return new Date(dateString).toLocaleDateString('fr-FR')
+      if (!dateString) return 'Date non définie';
+      
+      try {
+        // Si la date est déjà formatée (cas des mises à jour en direct)
+        if (typeof dateString === 'string' && dateString.includes('/')) {
+          return dateString;
+        }
+        
+        // Gérer à la fois date_intervention et date
+        const dateValue = dateString.date_intervention || dateString;
+        const date = new Date(dateValue);
+        
+        if (isNaN(date.getTime())) {
+          console.warn('Date invalide:', dateString);
+          return 'Date invalide';
+        }
+        
+        // Formater la date en français
+        return date.toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        });
+      } catch (e) {
+        console.error('Erreur de formatage de date:', e, 'Valeur reçue:', dateString);
+        return 'Date invalide';
+      }
     }
   
     const getStatutLabel = (statut) => {
       const labels = {
         'en_attente': 'En attente',
         'en_cours': 'En cours',
-        'terminee': 'Terminée',
-        'annulee': 'Annulée'
+        'termine': 'Terminé',
+        'annule': 'Annulé',
+        'planifie': 'Planifié',
+        'suspendu': 'Suspendu'
       }
-      return labels[statut] || statut
+      return labels[statut] || statut || 'Non défini';
     }
   
     return (
@@ -203,28 +233,28 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Informations du chantier</Text>
             <View style={styles.row}>
-              <Text style={styles.label}>Nom:</Text>
-              <Text style={styles.value}>{chantier.nom}</Text>
+              <Text style={styles.label}>Titre:</Text>
+              <Text style={styles.value}>{chantier.titre || 'Non défini'}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Client:</Text>
-              <Text style={styles.value}>{chantier.client}</Text>
+              <Text style={styles.value}>{chantier.client_nom || 'Non défini'}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Adresse:</Text>
-              <Text style={styles.value}>{chantier.adresse}</Text>
+              <Text style={styles.value}>{chantier.adresse || 'Non définie'}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Description:</Text>
-              <Text style={styles.value}>{chantier.description}</Text>
+              <Text style={styles.value}>{chantier.description || 'Aucune description'}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Début:</Text>
-              <Text style={styles.value}>{formatDate(chantier.dateDebut)}</Text>
+              <Text style={styles.value}>{formatDate(chantier.date_debut)}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Fin prévue:</Text>
-              <Text style={styles.value}>{formatDate(chantier.dateFin)}</Text>
+              <Text style={styles.value}>{formatDate(chantier.date_fin_prevue || chantier.date_fin)}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Statut:</Text>
@@ -249,37 +279,55 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
                 <Text style={styles.statLabel}>Temps total</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={styles.statNumber}>{coutTotal}€</Text>
-                <Text style={styles.statLabel}>Coût total</Text>
+              <Text style={styles.statNumber}>{`${String(budgetTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}</Text>
+                <Text style={styles.statLabel}>Budget total</Text>
               </View>
-            </View>
-            
-            <Text>Progression: {progressionPourcentage}%</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${progressionPourcentage}%` }]} />
             </View>
           </View>
   
-          {/* Interventions par catégorie */}
+          {/* Détail des interventions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Interventions par catégorie</Text>
-            {Object.entries(interventionsParCategorie).map(([categorie, ints]) => (
-              <View key={categorie} style={styles.categorySection}>
-                <Text style={styles.categoryTitle}>{categorie} ({ints.length})</Text>
-                {ints.map((int, index) => (
-                  <View key={index} style={styles.interventionItem}>
-                    <View style={styles.column}>
-                      <Text style={{ fontSize: 9, fontWeight: 'bold' }}>{int.titre}</Text>
-                      <Text style={{ fontSize: 8, color: '#6b7280' }}>
-                        {formatDate(int.date)} - {int.duree}h
-                      </Text>
-                    </View>
-                    <View style={{ textAlign: 'right' }}>
-                      <Text style={{ fontSize: 9, fontWeight: 'bold' }}>{int.cout}€</Text>
-                      <Text style={{ fontSize: 8 }}>{getStatutLabel(int.statut)}</Text>
-                    </View>
+            <Text style={styles.sectionTitle}>Détail des interventions</Text>
+            {interventions.map((int, index) => (
+              <View key={index} style={[
+                styles.interventionItem, 
+                { 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 8,
+                  padding: 8,
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 4
+                }
+              ]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>
+                    {int.titre}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 12, fontSize: 9, color: '#6b7280' }}>
+                    <Text>{formatDate(int.date_intervention || int.date)}</Text>
+                    <Text>{int.duree}h</Text>
                   </View>
-                ))}
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                  <Text style={{ 
+                    fontSize: 9, 
+                    fontWeight: 'medium',
+                    minWidth: 70,
+                    textAlign: 'right'
+                  }}>
+                    {getStatutLabel(int.statut)}
+                  </Text>
+                  <Text style={{ 
+                    fontSize: 10, 
+                    fontWeight: 'bold',
+                    minWidth: 60,
+                    textAlign: 'right'
+                  }}>
+                    {int.cout ? `${int.cout.toLocaleString('fr-FR')}€` : '-'}
+                  </Text>
+                </View>
               </View>
             ))}
           </View>
@@ -289,20 +337,20 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
             <Text style={styles.sectionTitle}>Historique détaillé</Text>
             <View style={styles.table}>
               {/* En-tête du tableau */}
-              <View style={styles.tableRow}>
-                <View style={styles.tableColHeader}>
+              <View style={[styles.tableRow, { backgroundColor: '#f3f4f6' }]}>
+                <View style={[styles.tableColHeader, { width: '20%' }]}>
                   <Text style={styles.tableCellHeader}>Date</Text>
                 </View>
-                <View style={[styles.tableColHeader, { width: '35%' }]}>
-                  <Text style={styles.tableCellHeader}>Intervention</Text>
+                <View style={[styles.tableColHeader, { width: '40%' }]}>
+                  <Text style={styles.tableCellHeader}>Description</Text>
                 </View>
-                <View style={styles.tableColHeader}>
+                <View style={[styles.tableColHeader, { width: '10%', textAlign: 'center' }]}>
                   <Text style={styles.tableCellHeader}>Durée</Text>
                 </View>
-                <View style={styles.tableColHeader}>
+                <View style={[styles.tableColHeader, { width: '15%', textAlign: 'center' }]}>
                   <Text style={styles.tableCellHeader}>Statut</Text>
                 </View>
-                <View style={styles.tableColHeader}>
+                <View style={[styles.tableColHeader, { width: '15%', textAlign: 'center' }]}>
                   <Text style={styles.tableCellHeader}>Coût</Text>
                 </View>
               </View>
@@ -310,40 +358,53 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
               {/* Lignes du tableau */}
               {interventions.map((int, index) => (
                 <View key={index} style={styles.tableRow}>
-                  <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{formatDate(int.date)}</Text>
+                  <View style={[styles.tableCol, { width: '20%' }]}>
+                    <Text style={styles.tableCell}>{formatDate(int.date_intervention || int.date)}</Text>
                   </View>
-                  <View style={[styles.tableCol, { width: '35%' }]}>
+                  <View style={[styles.tableCol, { width: '40%' }]}>
                     <Text style={styles.tableCell}>{int.titre}</Text>
                   </View>
-                  <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{int.duree}h</Text>
+                  <View style={[styles.tableCol, { width: '10%', alignItems: 'center' }]}>
+                    <Text style={[styles.tableCell, { textAlign: 'center' }]}>{int.duree}h</Text>
                   </View>
-                  <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{getStatutLabel(int.statut)}</Text>
+                  <View style={[styles.tableCol, { width: '15%' }]}>
+                    <Text style={[styles.tableCell, { textAlign: 'center' }]}>{getStatutLabel(int.statut)}</Text>
                   </View>
-                  <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{int.cout}€</Text>
+                  <View style={[styles.tableCol, { width: '15%' }]}>
+                    <Text style={[styles.tableCell, { textAlign: 'right', paddingRight: 8 }]}>
+                      {int.cout ? `${int.cout}€` : '-'}
+                    </Text>
                   </View>
                 </View>
               ))}
               
-              {/* Ligne totale */}
-              <View style={styles.tableRow}>
-                <View style={[styles.tableCol, { backgroundColor: '#f3f4f6' }]}>
-                  <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>TOTAL</Text>
+              {/* Ligne du total des interventions */}
+              <View style={[styles.tableRow, { borderTop: '1px solid #e5e7eb' }]}>
+                <View style={[styles.tableCol, { width: '60%' }]}>
+                  <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>Total des interventions :</Text>
                 </View>
-                <View style={[styles.tableCol, { width: '35%', backgroundColor: '#f3f4f6' }]}>
-                  <Text style={styles.tableCell}></Text>
+                <View style={[styles.tableCol, { width: '10%', alignItems: 'center' }]}>
+                  <Text style={[styles.tableCell, { textAlign: 'center', fontWeight: 'bold' }]}>{totalHeures}h</Text>
                 </View>
-                <View style={[styles.tableCol, { backgroundColor: '#f3f4f6' }]}>
-                  <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{totalHeures}h</Text>
+                <View style={[styles.tableCol, { width: '15%' }]}>
+                  <Text style={[styles.tableCell, { textAlign: 'center', fontWeight: 'bold' }]}>-</Text>
                 </View>
-                <View style={[styles.tableCol, { backgroundColor: '#f3f4f6' }]}>
-                  <Text style={styles.tableCell}></Text>
+                <View style={[styles.tableCol, { width: '15%' }]}>
+                  <Text style={[styles.tableCell, { textAlign: 'right', fontWeight: 'bold', paddingRight: 8 }]}>
+                    {`${String(coutTotalInterventions).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}
+                  </Text>
                 </View>
-                <View style={[styles.tableCol, { backgroundColor: '#f3f4f6' }]}>
-                  <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>{coutTotal}€</Text>
+              </View>
+              
+              {/* Ligne du budget total */}
+              <View style={[styles.tableRow, { backgroundColor: '#f9fafb' }]}>
+                <View style={[styles.tableCol, { width: '85%' }]}>
+                  <Text style={[styles.tableCell, { fontWeight: 'bold' }]}>Budget total du chantier :</Text>
+                </View>
+                <View style={[styles.tableCol, { width: '15%' }]}>
+                  <Text style={[styles.tableCell, { textAlign: 'right', fontWeight: 'bold', paddingRight: 8 }]}>
+                    {`${String(budgetTotal).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}
+                  </Text>
                 </View>
               </View>
             </View>
