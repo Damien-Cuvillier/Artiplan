@@ -14,7 +14,13 @@ const getStatusBadge = (status) => {
   };
   return statusConfig[status] || statusConfig.default;
 };
-
+const formatPrice = (price) => {
+  if (price === undefined || price === null || price === '') return 'Non renseigné';
+  return new Intl.NumberFormat('fr-FR', { 
+    style: 'currency', 
+    currency: 'EUR' 
+  }).format(price);
+};
 const formatDate = (dateString) => {
   if (!dateString) return 'Date non spécifiée';
   const date = new Date(dateString);
@@ -93,6 +99,14 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       {intervention.duree} h
+                    </div>
+                  )}
+                  {intervention.prix > 0 && (
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      {formatPrice(intervention.prix)}
                     </div>
                   )}
                 </div>

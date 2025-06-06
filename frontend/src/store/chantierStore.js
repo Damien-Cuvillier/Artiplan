@@ -123,7 +123,10 @@ createChantier: async (chantierData) => {
     try {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.CHANTIERS}/${id}`, {
         method: 'PUT',
-        headers: getAuthHeader(),
+        headers: {
+          ...getAuthHeader(),
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(chantierData),
       });
 
@@ -316,33 +319,36 @@ getAllInterventions: async () => {
   },
 
   // Mettre à jour une intervention
-  updateIntervention: async (id, interventionData) => {
-    console.log('URL de la requête:', `${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`);
-  console.log('Headers:', getAuthHeader());
-  console.log('Données envoyées:', interventionData);
-    set({ isLoading: true, error: null });
+  updateIntervention: async (interventionData) => {
+    const token = localStorage.getItem('token');
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.INTERVENTIONS}/${id}`, {
-        method: 'PATCH',
-        headers: getAuthHeader(),
-        body: JSON.stringify(interventionData),
+      const response = await fetch(`${API_BASE_URL}/api/interventions/${interventionData._id}`, {
+        method: 'PATCH',  // Changer de PUT à PATCH
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(interventionData)
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Erreur lors de la mise à jour de l\'intervention');
+        throw new Error(errorData.message || 'Erreur lors de la mise à jour');
       }
-
-      const updatedIntervention = await response.json();
+  
+      const result = await response.json();
+      // Accéder à result.data.intervention au lieu de result.data
+      const updatedIntervention = result.data?.intervention || result.data || result;
+  
       set(state => ({
-        interventions: state.interventions.map(intervention =>
-          intervention._id === id ? updatedIntervention : intervention
-        ),
-        isLoading: false
+        interventions: state.interventions.map(i => 
+          i._id === updatedIntervention._id ? updatedIntervention : i
+        )
       }));
+  
       return updatedIntervention;
     } catch (error) {
-      set({ error: error.message, isLoading: false });
+      console.error('Erreur lors de la mise à jour:', error);
       throw error;
     }
   },

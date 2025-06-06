@@ -2,18 +2,18 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   Search, 
-  Filter, 
   Calendar,
   Clock,
   Building,
-  Eye
+  Eye,
+  DollarSign
 } from 'lucide-react'
 import { useChantierStore } from '../store/chantierStore'
 
 const InterventionsList = () => {
   const { getAllInterventions, fetchChantiers, isLoading } = useChantierStore()
   const [searchTerm, setSearchTerm] = useState('')
-  const [typeFilter, setTypeFilter] = useState('')
+  const [typeFilter] = useState('')
   const [interventions, setInterventions] = useState([])
   const [isLoadingInterventions, setIsLoadingInterventions] = useState(false)
   const [error, setError] = useState(null)
@@ -39,6 +39,13 @@ const InterventionsList = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+  const formatPrice = (price) => {
+    if (price === undefined || price === null || price === '') return 'Non renseigné';
+    return new Intl.NumberFormat('fr-FR', { 
+      style: 'currency', 
+      currency: 'EUR' 
+    }).format(price);
   };
 
   useEffect(() => {
@@ -123,23 +130,6 @@ const InterventionsList = () => {
             <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
           </div>
         </div>
-
-        <div className="w-full sm:w-64">
-          <div className="relative">
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border rounded-lg appearance-none focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="">Tous les types</option>
-              <option value="installation">Installation</option>
-              <option value="reparation">Réparation</option>
-              <option value="maintenance">Maintenance</option>
-              <option value="inspection">Inspection</option>
-            </select>
-            <Filter className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          </div>
-        </div>
       </div>
 
       {/* Liste des interventions */}
@@ -180,6 +170,12 @@ const InterventionsList = () => {
                           <div className="flex items-center">
                             <Clock className="h-4 w-4 mr-1 text-gray-400" />
                             {intervention.duree} h
+                          </div>
+                        )}
+                        {intervention.prix && (
+                          <div className="flex items-center">
+                            <DollarSign className="h-4 w-4 mr-1 text-gray-400" />
+                            {formatPrice(intervention.prix)}
                           </div>
                         )}
                       </div>

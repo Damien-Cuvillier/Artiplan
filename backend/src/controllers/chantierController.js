@@ -28,7 +28,9 @@ exports.creerChantier = async (req, res) => {
       description: description || '',
       responsable_id: req.user._id
     });
-
+    if (!req.body.date_debut && !chantier.date_debut) {
+      req.body.date_debut = new Date();
+    }
     // Sauvegarde du chantier
     const chantierCree = await nouveauChantier.save();
     

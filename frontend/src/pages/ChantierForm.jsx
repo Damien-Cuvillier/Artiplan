@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useChantierStore } from '../store/chantierStore';
 import { useAuthStore } from '../store/authStore';
+import { API_BASE_URL } from '../config/api';
 
 const ChantierForm = () => {
+  const { id } = useParams();
   const { user } = useAuthStore();
-  const { createChantier } = useChantierStore();
+  const { createChantier, updateChantier, fetchChantierById, currentChantier } = useChantierStore();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const isEditing = !!id;
 
   const [formData, setFormData] = useState({
     titre: '',
@@ -34,6 +38,59 @@ const ChantierForm = () => {
     { value: 'en_cours', label: 'En cours' },
     { value: 'termine', label: 'Terminé' }
   ];
+
+  // Fonction utilitaire pour formater la date sans décalage horaire
+  const formatDateForAPI = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    // S'assurer que la date est valide
+    if (isNaN(date.getTime())) return null;
+    // Créer une date en UTC pour éviter les problèmes de fuseau horaire
+    return new Date(Date.UTC(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate()
+    )).toISOString();
+  };
+
+  // Charger les données du chantier en mode édition
+  useEffect(() => {
+    const loadChantier = async () => {
+      if (!isEditing) return;
+      
+      setIsLoading(true);
+      try {
+        await fetchChantierById(id);
+      } catch (error) {
+        console.error('Erreur lors du chargement du chantier:', error);
+        setErrors(prev => ({
+          ...prev,
+          fetchError: 'Impossible de charger les données du chantier'
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadChantier();
+  }, [id, isEditing, fetchChantierById]);
+
+  // Mettre à jour le formulaire quand currentChantier change
+  useEffect(() => {
+    if (isEditing && currentChantier) {
+      const formattedChantier = {
+        ...currentChantier,
+        date_debut: currentChantier.date_debut 
+          ? new Date(currentChantier.date_debut).toISOString().split('T')[0]
+          : '',
+        date_fin: currentChantier.date_fin 
+          ? new Date(currentChantier.date_fin).toISOString().split('T')[0]
+          : '',
+        budget: currentChantier.budget?.toString() || ''
+      };
+      setFormData(formattedChantier);
+    }
+  }, [currentChantier, isEditing]);
 
   useEffect(() => {
     if (!user) {
@@ -62,13 +119,27 @@ const ChantierForm = () => {
     
     if (!formData.titre.trim()) newErrors.titre = 'Le titre est requis';
     if (!formData.client_nom.trim()) newErrors.client_nom = 'Le nom du client est requis';
-    if (!formData.date_debut) newErrors.date_debut = 'La date de début est requise';
+    
+    // Validation de la date de début
+    if (!formData.date_debut) {
+      newErrors.date_debut = 'La date de début est requise';
+    } else {
+      const startDate = new Date(formData.date_debut);
+      if (isNaN(startDate.getTime())) {
+        newErrors.date_debut = 'Date de début invalide';
+      }
+    }
+
+    // Validation du statut
     if (!formData.statut) newErrors.statut = 'Le statut est requis';
+    
+    // Validation du budget
     if (!formData.budget) {
       newErrors.budget = 'Le budget est requis';
-    } else if (isNaN(formData.budget) || formData.budget <= 0) {
+    } else if (isNaN(formData.budget) || parseFloat(formData.budget) <= 0) {
       newErrors.budget = 'Le budget doit être un nombre positif';
     }
+    
     if (!formData.adresse.trim()) newErrors.adresse = 'L\'adresse est requise';
     
     // Validation des dates
@@ -76,8 +147,11 @@ const ChantierForm = () => {
       const startDate = new Date(formData.date_debut);
       const endDate = new Date(formData.date_fin);
       
-      if (endDate < startDate) {
-        newErrors.date_fin = 'La date de fin doit être postérieure à la date de début';
+      // S'assurer que les dates sont valides
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        newErrors.date_fin = 'Dates invalides';
+      } else if (endDate < startDate) {
+        newErrors.date_fin = 'La date de fin doit être postérieure ou égale à la date de début';
       }
     }
     
@@ -93,33 +167,71 @@ const ChantierForm = () => {
     setIsSubmitting(true);
     
     try {
+      // Formater les dates correctement
+      const dateDebut = formData.date_debut ? new Date(formData.date_debut) : new Date();
+      const dateFin = formData.date_fin ? new Date(formData.date_fin) : null;
+  
       const chantierData = {
         ...formData,
-        date_debut: new Date(formData.date_debut).toISOString(),
-        date_fin: formData.date_fin ? new Date(formData.date_fin).toISOString() : null,
+        date_debut: dateDebut,
+        date_fin: dateFin,
         budget: parseFloat(formData.budget),
         responsable_id: user.id
       };
+  
+      console.log('Données envoyées:', chantierData);
       
-      console.log('Envoi des données du chantier:', chantierData);
+      if (isEditing) {
+        await updateChantier(id, chantierData);
+      } else {
+        await createChantier(chantierData);
+      }
       
-      await createChantier(chantierData);
       navigate('/chantiers', { 
-        state: { success: 'Chantier créé avec succès !' } 
+        state: { 
+          success: `Chantier ${isEditing ? 'mis à jour' : 'créé'} avec succès !` 
+        } 
       });
       
     } catch (error) {
-      console.error('Erreur lors de la création du chantier:', error);
-      alert(`Erreur: ${error.message || 'Impossible de créer le chantier'}`);
+      console.error(`Erreur lors de ${isEditing ? 'la mise à jour' : 'la création'} du chantier:`, error);
+      setErrors(prev => ({
+        ...prev,
+        submitError: error.message || `Impossible de ${isEditing ? 'mettre à jour' : 'créer'} le chantier`
+      }));
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      </div>
+    );
+  }
+
+  if (isEditing && !currentChantier && !isLoading) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500">Impossible de charger les données du chantier.</p>
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded"
+        >
+          Retour
+        </button>
+      </div>
+    );
+  }
+  
   return (
     <div className="max-w-3xl mx-auto px-4 py-8">
       <div className="bg-white shadow rounded-lg p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Nouveau Chantier</h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-6">
+          {isEditing ? 'Modifier le Chantier' : 'Nouveau Chantier'}
+        </h1>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -302,7 +414,9 @@ const ChantierForm = () => {
               disabled={isSubmitting}
               className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${isSubmitting ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
-              {isSubmitting ? 'Création en cours...' : 'Créer le chantier'}
+              {isSubmitting 
+                ? (isEditing ? 'Mise à jour...' : 'Création en cours...')
+                : (isEditing ? 'Mettre à jour le chantier' : 'Créer le chantier')}
             </button>
           </div>
         </form>

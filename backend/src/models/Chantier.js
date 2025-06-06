@@ -32,14 +32,19 @@ const chantierSchema = new mongoose.Schema({
     default: Date.now 
   },
   date_fin: {
-    type: Date,
-    validate: {
-      validator: function(value) {
-        return !value || value >= this.date_debut;
-      },
-      message: 'La date de fin doit être postérieure ou égale à la date de début'
-    }
-  },
+  type: Date,
+  validate: {
+    validator: function(value) {
+      // Si pas de date de fin, c'est valide
+      if (!value) return true;
+      
+      // Si date_debut n'est pas défini, on utilise la date actuelle
+      const dateDebut = this.date_debut || new Date();
+      return value >= dateDebut;
+    },
+    message: 'La date de fin doit être postérieure ou égale à la date de début'
+  }
+},
   budget: { 
     type: Number, 
     required: [true, 'Le budget est requis'],

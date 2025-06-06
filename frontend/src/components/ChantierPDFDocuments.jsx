@@ -168,15 +168,7 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
       int.statut === 'termine' || int.statut === 'terminee' || int.statut === 'terminée'
     ).length
     const budgetTotal = chantier.budget || 0
-    const coutTotalInterventions = interventions.reduce((acc, int) => acc + (int.cout || 0), 0)
-  
-    // Grouper par catégorie
-    const interventionsParCategorie = interventions.reduce((acc, int) => {
-      const cat = int.categorie || 'Autre'
-      if (!acc[cat]) acc[cat] = []
-      acc[cat].push(int)
-      return acc
-    }, {})
+    const coutTotalInterventions = interventions.reduce((acc, int) => acc + (int.prix || 0), 0)
   
     const formatDate = (dateString) => {
       if (!dateString) return 'Date non définie';
@@ -325,7 +317,7 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
                     minWidth: 60,
                     textAlign: 'right'
                   }}>
-                    {int.cout ? `${int.cout.toLocaleString('fr-FR')}€` : '-'}
+                    {int.prix ? `${int.prix.toLocaleString('fr-FR')}€` : '-'}
                   </Text>
                 </View>
               </View>
@@ -351,7 +343,7 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
                   <Text style={styles.tableCellHeader}>Statut</Text>
                 </View>
                 <View style={[styles.tableColHeader, { width: '15%', textAlign: 'center' }]}>
-                  <Text style={styles.tableCellHeader}>Coût</Text>
+                  <Text style={styles.tableCellHeader}>Prix</Text>
                 </View>
               </View>
               
@@ -372,7 +364,7 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
                   </View>
                   <View style={[styles.tableCol, { width: '15%' }]}>
                     <Text style={[styles.tableCell, { textAlign: 'right', paddingRight: 8 }]}>
-                      {int.cout ? `${int.cout}€` : '-'}
+                      {int.prix ? `${int.prix}€` : '-'}
                     </Text>
                   </View>
                 </View>
@@ -391,7 +383,7 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
                 </View>
                 <View style={[styles.tableCol, { width: '15%' }]}>
                   <Text style={[styles.tableCell, { textAlign: 'right', fontWeight: 'bold', paddingRight: 8 }]}>
-                    {`${String(coutTotalInterventions).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}
+                  {`${String(coutTotalInterventions).replace(/\B(?=(\d{3})+(?!\d))/g, ' ')} €`}
                   </Text>
                 </View>
               </View>

@@ -36,6 +36,11 @@ const interventionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Chantier',
     required: [true, 'Le chantier est requis']
+  },
+  prix: {
+    type: Number,
+    min: [0, 'Le prix ne peut pas être négatif'],
+    default: 0
   }
 }, { timestamps: true });
 
