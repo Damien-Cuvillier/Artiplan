@@ -114,15 +114,7 @@ function App() {
             </ProtectedRoute>
           } />
           
-          <Route path="/intervention/new" element={
-            <ProtectedRoute>
-              <Layout>
-                <InterventionForm />
-              </Layout>
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/intervention/new/:chantierId" element={
+          <Route path="/chantiers/:chantierId/interventions/nouvelle" element={
             <ProtectedRoute>
               <Layout>
                 <InterventionForm />

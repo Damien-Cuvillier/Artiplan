@@ -1,30 +1,56 @@
 // src/pages/ChantiersList.jsx
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useChantierStore } from '../store/chantierStore';
 import { PlusIcon, PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import StatusBadge from '../components/ui/StatusBadge';
 
 const ChantiersList = () => {
+  // Récupérez les données du store
   const { chantiers, fetchChantiers, deleteChantier, isLoading, error } = useChantierStore();
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const location = useLocation();
+  const [successMessage, setSuccessMessage] = useState('');
 
+  // Chargez les chantiers au montage et quand la location change
   useEffect(() => {
-    fetchChantiers();
-  }, [fetchChantiers]);
-
-  const handleDelete = async (id) => {
-    if (confirmDelete === id) {
+    const loadChantiers = async () => {
       try {
-        await deleteChantier(id);
-        setConfirmDelete(null);
+        const forceRefresh = location.state?.refresh || false;
+        await fetchChantiers(forceRefresh);
+        
+        if (location.state?.success) {
+          setSuccessMessage(location.state.success);
+          const timer = setTimeout(() => {
+            setSuccessMessage('');
+            // Nettoyer l'état de navigation
+            window.history.replaceState({}, document.title);
+          }, 5000);
+          return () => clearTimeout(timer);
+        }
       } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
+        console.error('Erreur lors du chargement des chantiers:', error);
       }
-    } else {
-      setConfirmDelete(id);
-      setTimeout(() => setConfirmDelete(null), 3000);
+    };
+    
+    loadChantiers();
+  }, [fetchChantiers, location]);
+  
+const handleDelete = async (id) => {
+  if (confirmDelete === id) {
+    try {
+      await deleteChantier(id);
+      setSuccessMessage('Chantier supprimé avec succès');
+      setConfirmDelete(null);
+      await fetchChantiers(); // Recharger après suppression
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
     }
-  };
+  } else {
+    setConfirmDelete(id);
+    setTimeout(() => setConfirmDelete(null), 3000);
+  }
+};
 
   if (isLoading) {
     return <div className="text-center py-10">Chargement des chantiers...</div>;
@@ -46,7 +72,11 @@ const ChantiersList = () => {
           Nouveau chantier
         </Link>
       </div>
-
+      {successMessage && (
+        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+          {successMessage}
+        </div>
+      )}
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
         <ul className="divide-y divide-gray-200">
           {chantiers.map((chantier) => (
@@ -60,17 +90,7 @@ const ChantiersList = () => {
                     {chantier.titre}
                   </Link>
                   <div className="ml-2 flex-shrink-0 flex">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        chantier.statut === 'en_cours'
-                          ? 'bg-green-100 text-green-800'
-                          : chantier.statut === 'termine'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {chantier.statut}
-                    </span>
+                  <StatusBadge status={chantier.statut} />
                   </div>
                 </div>
                 <div className="mt-2 sm:flex sm:justify-between">

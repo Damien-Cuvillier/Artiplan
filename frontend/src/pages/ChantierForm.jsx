@@ -40,18 +40,18 @@ const ChantierForm = () => {
   ];
 
   // Fonction utilitaire pour formater la date sans décalage horaire
-  const formatDateForAPI = (dateString) => {
-    if (!dateString) return null;
-    const date = new Date(dateString);
-    // S'assurer que la date est valide
-    if (isNaN(date.getTime())) return null;
-    // Créer une date en UTC pour éviter les problèmes de fuseau horaire
-    return new Date(Date.UTC(
-      date.getFullYear(),
-      date.getMonth(),
-      date.getDate()
-    )).toISOString();
-  };
+  // const formatDateForAPI = (dateString) => {
+  //   if (!dateString) return null;
+  //   const date = new Date(dateString);
+  //   // S'assurer que la date est valide
+  //   if (isNaN(date.getTime())) return null;
+  //   // Créer une date en UTC pour éviter les problèmes de fuseau horaire
+  //   return new Date(Date.UTC(
+  //     date.getFullYear(),
+  //     date.getMonth(),
+  //     date.getDate()
+  //   )).toISOString();
+  // };
 
   // Charger les données du chantier en mode édition
   useEffect(() => {
@@ -78,14 +78,19 @@ const ChantierForm = () => {
   // Mettre à jour le formulaire quand currentChantier change
   useEffect(() => {
     if (isEditing && currentChantier) {
+      const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(dateString);
+        // S'assurer que la date est valide
+        if (isNaN(date.getTime())) return '';
+        // Formater en YYYY-MM-DD pour l'input de type date
+        return date.toISOString().split('T')[0];
+      };
+
       const formattedChantier = {
         ...currentChantier,
-        date_debut: currentChantier.date_debut 
-          ? new Date(currentChantier.date_debut).toISOString().split('T')[0]
-          : '',
-        date_fin: currentChantier.date_fin 
-          ? new Date(currentChantier.date_fin).toISOString().split('T')[0]
-          : '',
+        date_debut: formatDateForInput(currentChantier.date_debut),
+        date_fin: formatDateForInput(currentChantier.date_fin),
         budget: currentChantier.budget?.toString() || ''
       };
       setFormData(formattedChantier);
@@ -161,36 +166,47 @@ const ChantierForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!validateForm()) return;
-    
+  
     setIsSubmitting(true);
-    
+
     try {
-      // Formater les dates correctement
-      const dateDebut = formData.date_debut ? new Date(formData.date_debut) : new Date();
-      const dateFin = formData.date_fin ? new Date(formData.date_fin) : null;
+      // Formater les dates correctement en tenant compte du fuseau horaire local
+      const formatDateForAPI = (dateString) => {
+        if (!dateString) return null;
+        const date = new Date(dateString);
+        // S'assurer que la date est valide
+        if (isNaN(date.getTime())) return null;
+        // Créer une date en UTC à minuit pour éviter les problèmes de fuseau horaire
+        return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString();
+      };
+
+      const dateDebut = formData.date_debut ? formatDateForAPI(formData.date_debut) : null;
+      const dateFin = formData.date_fin ? formatDateForAPI(formData.date_fin) : null;
   
       const chantierData = {
         ...formData,
         date_debut: dateDebut,
         date_fin: dateFin,
-        budget: parseFloat(formData.budget),
+        budget: parseFloat(formData.budget) || 0,
         responsable_id: user.id
       };
   
       console.log('Données envoyées:', chantierData);
       
-      if (isEditing) {
-        await updateChantier(id, chantierData);
-      } else {
-        await createChantier(chantierData);
-      }
+       if (isEditing) {
+      await updateChantier(id, chantierData);
+    } else {
+      await createChantier(chantierData);
+    }
       
+      // Naviguer après la mise à jour complète
       navigate('/chantiers', { 
         state: { 
-          success: `Chantier ${isEditing ? 'mis à jour' : 'créé'} avec succès !` 
-        } 
+          success: `Chantier ${isEditing ? 'mis à jour' : 'créé'} avec succès !`,
+          refresh: true
+        },
+        replace: true
       });
       
     } catch (error) {

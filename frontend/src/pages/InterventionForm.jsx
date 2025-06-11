@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Save, ArrowLeft, Upload, X } from 'lucide-react'
 import { useChantierStore } from '../store/chantierStore'
-import { useAuthStore } from '../store/authStore'
+// import { useAuthStore } from '../store/authStore'
 import { API_BASE_URL } from '../config/api';
 
 const InterventionForm = () => {
@@ -17,8 +17,8 @@ const InterventionForm = () => {
     fetchChantierById, 
     isLoading: isLoadingChantier,
   } = useChantierStore()
-  const { user } = useAuthStore() 
-  const currentUser = user 
+  // const { user } = useAuthStore() 
+  // const currentUser = user 
   const [images, setImages] = useState([])
   const [submitError, setSubmitError] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -106,7 +106,12 @@ useEffect(() => {
   const onSubmit = async (data) => {
     try {
       setIsLoading(true);
-      
+      setSubmitError(null);
+
+      if (!chantierId) {
+        throw new Error('Aucun chantier sélectionné');
+      }
+
       const interventionData = {
         titre: data.titre,
         description: data.description,
@@ -114,14 +119,16 @@ useEffect(() => {
         duree: parseInt(data.duree) || 0,
         statut: data.statut || 'planifiee',
         type: data.type || 'maintenance',
-        ...(data.prix !== undefined && { prix: parseFloat(data.prix) })
+        ...(data.prix !== undefined && { prix: parseFloat(data.prix) }),
+        images: images.map(img => img.url || img)
       };
-  
+
       if (isEditing && existingIntervention) {
         // Mise à jour
         await updateIntervention({
           ...interventionData,
-          _id: existingIntervention._id
+          _id: existingIntervention._id,
+          chantier_id: chantierId
         });
       } else {
         // Création
@@ -134,7 +141,7 @@ useEffect(() => {
       navigate(`/chantiers/${chantierId}`);
     } catch (error) {
       console.error('Erreur:', error);
-      setSubmitError(error.message);
+      setSubmitError(error.message || 'Une erreur est survenue lors de la sauvegarde');
     } finally {
       setIsLoading(false);
     }

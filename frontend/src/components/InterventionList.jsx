@@ -1,5 +1,6 @@
 // src/components/InterventionList.jsx
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { DollarSign } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useChantierStore } from '../store/chantierStore';
@@ -103,9 +104,7 @@ const InterventionList = ({ interventions = [], isLoading, chantierId }) => {
                   )}
                   {intervention.prix > 0 && (
                     <div className="flex items-center">
-                      <svg className="h-4 w-4 mr-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
+                      <DollarSign className="h-4 w-4 mr-1 text-gray-400" />
                       {formatPrice(intervention.prix)}
                     </div>
                   )}
