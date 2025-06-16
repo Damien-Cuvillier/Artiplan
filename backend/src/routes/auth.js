@@ -1,10 +1,11 @@
-const express = require('express');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User');
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import User from '../models/User.js';
+import { login } from '../controllers/authController.js';
+import { authLimiter } from '../middleware/rateLimiter.js';
+
 const router = express.Router();
-const authController = require('../controllers/authController');
-const { authLimiter } = require('../middleware/rateLimiter');
 
 // Middleware d'authentification
 const auth = async (req, res, next) => {
@@ -30,7 +31,7 @@ const auth = async (req, res, next) => {
 };
 
 // Login
-router.post('/login', authLimiter, authController.login);
+router.post('/login', authLimiter, login);
 
 // Vérifier le token
 router.get('/verify', auth, (req, res) => {
@@ -45,4 +46,4 @@ router.get('/verify', auth, (req, res) => {
   });
 });
 
-module.exports = router;
+export default router;

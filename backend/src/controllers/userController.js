@@ -1,10 +1,14 @@
 // src/controllers/userController.js
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
-// Obtenir le profil de l'utilisateur connecté
-exports.getProfile = async (req, res) => {
+/**
+ * Obtenir le profil de l'utilisateur connecté
+ * @route GET /api/users/me
+ * @access Privé
+ */
+export const getProfile = async (req, res) => {
   try {
     res.status(200).json({
       status: 'success',
@@ -15,13 +19,18 @@ exports.getProfile = async (req, res) => {
   } catch (err) {
     res.status(500).json({
       status: 'error',
-      message: 'Erreur lors de la récupération du profil'
+      message: 'Erreur lors de la récupération du profil',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
 
-// Mettre à jour le profil de l'utilisateur connecté
-exports.updateProfile = async (req, res) => {
+/**
+ * Mettre à jour le profil de l'utilisateur connecté
+ * @route PATCH /api/users/me
+ * @access Privé
+ */
+export const updateProfile = async (req, res) => {
   try {
     // Ne pas permettre la mise à jour du mot de passe ici
     const { password, ...updateData } = req.body;
@@ -29,8 +38,19 @@ exports.updateProfile = async (req, res) => {
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id, 
       updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
+      { 
+        new: true, 
+        runValidators: true,
+        select: '-password -__v' 
+      }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Utilisateur non trouvé'
+      });
+    }
 
     res.status(200).json({
       status: 'success',
@@ -39,104 +59,138 @@ exports.updateProfile = async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(400).json({
-      status: 'error',
-      message: 'Échec de la mise à jour du profil'
-    });
-  }
-};
-
-// Enregistrer un nouvel utilisateur (admin seulement)
-exports.register = async (req, res) => {
-    try {
-      const { nom, prenom, email, password, role } = req.body;
-      
-      // Vérifier si l'utilisateur existe déjà
-      const existingUser = await User.findOne({ email });
-      if (existingUser) {
-        return res.status(400).json({ 
-          status: 'error',
-          message: 'Un utilisateur avec cet email existe déjà' 
-        });
-      }
-  
-      // Créer un nouvel utilisateur
-      const user = new User({
-        nom,
-        prenom,
-        email,
-        password,
-        role: role || 'technicien'
-      });
-  
-      await user.save();
-  
-      res.status(201).json({
-        status: 'success',
-        data: {
-          user: {
-            id: user._id,
-            nom: user.nom,
-            prenom: user.prenom,
-            email: user.email,
-            role: user.role
-          }
-        }
-      });
-    } catch (err) {
-      res.status(400).json({
-        status: 'error',
-        message: 'Échec de la création de l\'utilisateur',
-        error: err.message
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Erreur de validation',
+        errors: Object.values(err.errors).map(e => e.message)
       });
     }
-  };
-
-// Obtenir tous les utilisateurs (admin seulement)
-exports.getAllUsers = async (req, res) => {
-  try {
-    const users = await User.find().select('-password');
-    res.status(200).json({
-      status: 'success',
-      results: users.length,
-      data: {
-        users
-      }
-    });
-  } catch (err) {
     res.status(500).json({
       status: 'error',
-      message: 'Erreur lors de la récupération des utilisateurs'
+      message: 'Échec de la mise à jour du profil',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
 };
 
-// Désactiver un utilisateur (admin seulement)
-exports.deactivateUser = async (req, res) => {
+/**
+ * Enregistrer un nouvel utilisateur
+ * @route POST /api/users
+ * @access Privé (Admin)
+ */
+export const register = async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { actif: false },
-      { new: true }
-    ).select('-password');
-
-    if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Utilisateur non trouvé'
+    const { nom, prenom, email, password, role } = req.body;
+    
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ 
+        status: 'fail',
+        message: 'Un utilisateur avec cet email existe déjà' 
       });
     }
 
-    res.status(200).json({
+    // Créer un nouvel utilisateur
+    const user = new User({
+      nom,
+      prenom,
+      email,
+      password,
+      role: role || 'technicien'
+    });
+
+    await user.save();
+
+    // Ne pas renvoyer le mot de passe
+    user.password = undefined;
+
+    res.status(201).json({
       status: 'success',
       data: {
         user
       }
     });
   } catch (err) {
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Erreur de validation',
+        errors: Object.values(err.errors).map(e => e.message)
+      });
+    }
     res.status(500).json({
       status: 'error',
-      message: 'Erreur lors de la désactivation de l\'utilisateur'
+      message: 'Échec de la création de l\'utilisateur',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
   }
+};
+
+/**
+ * Obtenir tous les utilisateurs
+ * @route GET /api/users
+ * @access Privé (Admin)
+ */
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select('-password -__v');
+    res.status(200).json({
+      status: 'success',
+      results: users.length,
+      data: { users }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la récupération des utilisateurs',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+/**
+ * Désactiver un utilisateur
+ * @route PATCH /api/users/:id/deactivate
+ * @access Privé (Admin)
+ */
+export const deactivateUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { actif: false },
+      { 
+        new: true,
+        select: '-password -__v' 
+      }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: { user }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la désactivation de l\'utilisateur',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+// Export par défaut pour la rétrocompatibilité
+export default {
+  getProfile,
+  updateProfile,
+  register,
+  getAllUsers,
+  deactivateUser
 };

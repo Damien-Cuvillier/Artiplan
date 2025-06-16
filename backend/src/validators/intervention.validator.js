@@ -1,6 +1,6 @@
-const { body } = require('express-validator');
+import { body, validationResult } from 'express-validator';
 
-exports.validateIntervention = [
+export const validateIntervention = [
   body('chantier_id')
     .notEmpty().withMessage('Le chantier est requis')
     .isMongoId().withMessage('ID de chantier invalide'),
@@ -30,7 +30,7 @@ exports.validateIntervention = [
 ];
 
 // Middleware pour gérer les erreurs de validation
-exports.validate = (req, res, next) => {
+export const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return res.status(400).json({
@@ -40,3 +40,6 @@ exports.validate = (req, res, next) => {
   }
   next();
 };
+
+// Export par défaut pour la rétrocompatibilité
+export default { validateIntervention, validate };

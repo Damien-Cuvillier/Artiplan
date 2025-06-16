@@ -1,6 +1,7 @@
 {
   "name": "chantier-app-backend",
   "version": "1.0.0",
+  "type": "module",
   "description": "API pour la gestion des chantiers",
   "main": "src/index.js",
   "scripts": {
@@ -23,6 +24,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.16.0",
     "mongoose": "^8.15.0",
+    "multer": "^2.0.1",
     "pg": "^8.11.0",
     "xss-clean": "^0.1.4"
   },

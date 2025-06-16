@@ -1,25 +1,19 @@
-// src/config/db.js
-const { Pool } = require('pg');
-require('dotenv').config();
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'chantier_db',
-  password: process.env.DB_PASSWORD || 'votre_mot_de_passe',
-  port: process.env.DB_PORT || 5432,
-});
+dotenv.config();
 
-// Test de la connexion
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Erreur de connexion à la base de données:', err);
-  } else {
-    console.log('Connecté à PostgreSQL à', res.rows[0].now);
+const connectDB = async () => {
+  try {
+    const conn = await mongoose.connect(process.env.MONGODB_URI, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+    console.log(`MongoDB connecté: ${conn.connection.host}`);
+  } catch (error) {
+    console.error(`Erreur: ${error.message}`);
+    process.exit(1);
   }
-});
-
-module.exports = {
-  query: (text, params) => pool.query(text, params),
-  pool
 };
+
+export default connectDB;

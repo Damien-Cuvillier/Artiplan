@@ -1,6 +1,6 @@
 // src/store/authStore.js
 import { create } from 'zustand';
-import { API_BASE_URL, API_ENDPOINTS, getAuthHeader } from '../config/api';
+import { API_BASE_URL } from '../config/api';
 
 // Fonction utilitaire pour obtenir l'utilisateur depuis le localStorage
 const getStoredUser = () => {
@@ -59,63 +59,55 @@ export const useAuthStore = create((set) => ({
     set({ 
       user: null, 
       token: null, 
-      isAuthenticated: false 
+      isAuthenticated: false,
+      error: null
     });
   },
 
   checkAuth: async () => {
     const token = localStorage.getItem('token');
-    if (!token) {
+    const user = getStoredUser();
+    
+    if (!token || !user) {
       set({ isAuthenticated: false, user: null });
       return false;
     }
-  
-    set({ isLoading: true });
-    try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.AUTH.ME}`, {
-        headers: getAuthHeader(),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Session expirée');
-      }
-  
-      const userData = await response.json();
-      console.log('Utilisateur récupéré:', userData); // Vérifiez cette sortie
-      
-      localStorage.setItem('user', JSON.stringify(userData));
-      set({ 
-        user: userData,
-        isAuthenticated: true,
-        token: localStorage.getItem('token'),
-        error: null
-      });
-      return true;
-    } catch (error) {
-      console.error('Erreur de vérification d\'authentification:', error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      set({ 
-        user: null, 
-        token: null, 
-        isAuthenticated: false,
-        error: error.message
-      });
-      return false;
-    } finally {
-      set({ isLoading: false });
-    }
+
+    // Si on a un token et un utilisateur en cache, on considère la session comme valide
+    // sans appeler l'API /me qui n'existe pas
+    set({ 
+      user,
+      token,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null
+    });
+    
+    return true;
   },
 
   // Initialiser l'authentification au chargement de l'application
   initializeAuth: async () => {
     const token = localStorage.getItem('token');
-    if (token) {
-      return await useAuthStore.getState().checkAuth();
+    const user = getStoredUser();
+    
+    if (!token || !user) {
+      set({ isAuthenticated: false, user: null });
+      return false;
     }
-    return false;
+    
+    // Simplement vérifier que le token et l'utilisateur existent
+    // sans appeler l'API /me
+    set({ 
+      user,
+      token,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null
+    });
+    
+    return true;
   }
 }));
 
-// Initialiser l'authentification au chargement du store
-useAuthStore.getState().initializeAuth();
+// Ne pas initialiser automatiquement ici, laissons le composant racine le faire

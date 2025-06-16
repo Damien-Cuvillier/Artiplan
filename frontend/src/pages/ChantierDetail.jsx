@@ -224,7 +224,7 @@ const ChantierDetail = () => {
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <BackButton onClick={() => navigate(-1)} className="mb-6" />
+      <BackButton onClick={() => navigate('/chantiers')} className="mb-6" />
       
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         {/* En-tête avec bouton Aperçu PDF */}

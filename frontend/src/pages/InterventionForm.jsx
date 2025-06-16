@@ -4,8 +4,33 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { Save, ArrowLeft, Upload, X } from 'lucide-react'
 import { useChantierStore } from '../store/chantierStore'
-// import { useAuthStore } from '../store/authStore'
+import useUserRole from '../hooks/useUserRole';
 import { API_BASE_URL } from '../config/api';
+import { getImageUrl } from '../config/api';
+
+
+// Fonction utilitaire pour gérer les erreurs de chargement d'images
+const handleImageError = (e, imageUrl) => {
+  // Si l'image est déjà un SVG d'erreur, ne rien faire
+  if (e.target.src && e.target.src.startsWith('data:image/svg+xml')) {
+    return;
+  }
+  
+  console.error('Erreur de chargement de l\'image:', imageUrl);
+  
+  // Remplacer l'image par un placeholder d'erreur
+  e.target.onerror = null;
+  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMjQgMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzljYTVhZSIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWltYWdlLW9mZiI+CiAgPHBhdGggZD0iTTE5LjUgMTRuLTIuNTQtMi45QzE2LjQ4IDEwLjM3IDE1LjMgMTAgMTQgMTBjLS4zNiAwLS4zNy0uMDYtMS4xOS0xLjEyLjU0LTEuMSAxLjE5LTIuMzEgMS40NS0yLjg5LjI3LS41OS4yLTE4LjIyLTEuNjEtMTguMTgtMS4yMi4wMS0xLjUzLjc4LS43OCAxLjU5LjUuNTYgMS4yIDEuMjUgMS4yIDIuMTIgMCAuNzgtLjM5IDEuMTUtLjg2IDIuMDgtLjU0Ljk1MC0xLjE3IDIuMTEtMS42MiAzLjIxYS40NC40NCAwIDAgMC0uMDQuMTV2Ni42M3MwIC41Mi40Mi45NS45NS45NWgxMS45Yy41MiAwIC45NS0uNDMuOTUtLjk1di00Ljc1YzAtLjIyLS4wNy0uNDMtLjItLjZ6Ii8+CiAgPHBhdGggZD0ibTIgNCAzLjA5LTMuMTRhMS4yNCAxLjI0IDAgMCAxIDEuNzUtLjAxTDx3IDExIi8+CiAgPHBhdGggZD0ibTIgNCAzLTMiLz4KICA8cGF0aCBkPSJtMyAyMSAyMS0yMSIvPgo8L3N2Zz4=';
+  
+  // Ajouter une classe pour indiquer visuellement l'erreur
+  const container = e.target.closest('div[class*="relative"]');
+  if (container) {
+    container.classList.add('bg-red-50', 'border', 'border-red-200');
+  }
+  
+  // Ajouter un titre avec l'erreur
+  e.target.title = `Impossible de charger l'image: ${imageUrl}`;
+};
 
 const InterventionForm = () => {
   const { chantierId, id } = useParams()
@@ -17,14 +42,16 @@ const InterventionForm = () => {
     fetchChantierById, 
     isLoading: isLoadingChantier,
   } = useChantierStore()
-  // const { user } = useAuthStore() 
-  // const currentUser = user 
+  
+  const { canEditIntervention } = useUserRole();
   const [images, setImages] = useState([])
   const [submitError, setSubmitError] = useState(null)
   const [isLoading, setIsLoading] = useState(false)
-  
+  const [isUploading, setIsUploading] = useState(false);
   const isEditing = !!id
   const [existingIntervention, setExistingIntervention] = useState(null)
+  const [isReadOnly, setIsReadOnly] = useState(false)
+  const [existingImages, setExistingImages] = useState(null)
 
   const { 
     register, 
@@ -35,12 +62,9 @@ const InterventionForm = () => {
     reset
   } = useForm()
 
+  
+
   useEffect(() => {
-    if (chantierId) {
-      fetchChantierById(chantierId)
-    }
-  }, [chantierId, fetchChantierById])
-useEffect(() => {
     if (chantierId) {
       fetchChantierById(chantierId)
     }
@@ -48,70 +72,153 @@ useEffect(() => {
 
   useEffect(() => {
     if (existingIntervention) {
-      // Formater la date pour l'input datetime-local
       const formattedIntervention = {
         ...existingIntervention,
         date: existingIntervention.date_intervention 
           ? new Date(existingIntervention.date_intervention).toISOString().slice(0, 16)
           : new Date().toISOString().slice(0, 16),
-        // Convertir le prix en nombre s'il existe, sinon undefined
         prix: existingIntervention.prix && existingIntervention.prix !== "" 
           ? parseFloat(existingIntervention.prix) 
           : undefined
       };
+      
       console.log('Données formatées pour le formulaire:', formattedIntervention);
       reset(formattedIntervention);
+      
+      // Initialiser l'état des images avec les images existantes
+      if (existingIntervention.images && existingIntervention.images.length > 0) {
+        console.log('Initialisation des images existantes:', existingIntervention.images);
+        setImages(existingIntervention.images);
+      }
     }
   }, [existingIntervention, reset]);
-
-  useEffect(() => {
-    const loadIntervention = async () => {
-      if (!isEditing || !id) return;
-      
-      setIsLoading(true);
+// Fonction utilitaire pour normaliser les chemins d'images
+const normalizeImagePaths = (images) => {
+  if (!Array.isArray(images)) return [];
+  
+  return images.map(img => {
+    if (!img) return null;
+    
+    // Si c'est déjà un chemin relatif, le retourner tel quel
+    if (typeof img === 'string' && img.startsWith('/uploads/')) {
+      return img;
+    }
+    
+    // Si c'est une URL complète, extraire le chemin
+    if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
       try {
-        // D'abord, vérifier dans le store
+        const url = new URL(img);
+        return url.pathname; // Retourne le chemin avec le / au début
+      } catch (e) {
+        console.error('Erreur lors du parsing de l\'URL de l\'image:', img, e);
+        return null;
+      }
+    }
+    
+    // Si c'est un chemin sans le / initial, l'ajouter
+    if (typeof img === 'string' && !img.startsWith('/')) {
+      return `/${img}`;
+    }
+    
+    return img;
+  }).filter(Boolean);
+};
+
+useEffect(() => {
+  if (existingIntervention?.images) {
+    console.log('Images avant normalisation:', existingIntervention.images);
+    const normalizedImages = normalizeImagePaths(existingIntervention.images);
+    console.log('Images après normalisation:', normalizedImages);
+    setExistingImages(normalizedImages);
+  }
+}, [existingIntervention]);
+  useEffect(() => {
+    if (!isEditing || !id) return;
+
+    const loadIntervention = async () => {
+      try {
         const interventionFromStore = interventions.find(i => i._id === id);
         
         if (interventionFromStore) {
+          console.log('Intervention chargée depuis le store:', interventionFromStore);
+          console.log('Images du store:', interventionFromStore.images);
           setExistingIntervention(interventionFromStore);
+          
+          // Initialiser les images existantes
+          if (interventionFromStore.images && interventionFromStore.images.length > 0) {
+            console.log('Initialisation des images existantes:', interventionFromStore.images);
+            setExistingImages(interventionFromStore.images);
+          }
         } else {
-          // Si pas dans le store, charger depuis l'API
           const token = localStorage.getItem('token');
-          const response = await fetch(`${API_BASE_URL}/api/interventions/${id}`, {
+          console.log(`Chargement de l'intervention depuis l'API: ${API_BASE_URL}/interventions/${id}`);
+          
+          const response = await fetch(`${API_BASE_URL}/interventions/${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           });
+          
           if (!response.ok) {
             throw new Error('Impossible de charger les données de l\'intervention');
           }
-
+    
           const data = await response.json();
           const interventionData = data.data || data;
+          console.log('Données brutes de l\'intervention:', interventionData);
+          
+          if (interventionData.images) {
+            console.log('Images chargées depuis l\'API:', interventionData.images);
+            setExistingImages(interventionData.images);
+          }
+          
           setExistingIntervention(interventionData);
         }
       } catch (error) {
         console.error('Erreur lors du chargement de l\'intervention:', error);
-        setSubmitError('Erreur lors du chargement des données de l\'intervention');
+        setSubmitError('Impossible de charger les données de l\'intervention');
       } finally {
         setIsLoading(false);
       }
     };
-
+    
     loadIntervention();
   }, [id, isEditing, interventions]);
 
+  useEffect(() => {
+    if (isEditing && !canEditIntervention) {
+      setIsReadOnly(true);
+      loadIntervention();
+    } else if (chantierId) {
+      fetchChantierById(chantierId);
+    }
+  }, [chantierId, isEditing, canEditIntervention, fetchChantierById])
+
   const onSubmit = async (data) => {
+    if (!canEditIntervention) {
+      setSubmitError('Vous n\'avez pas les droits pour effectuer cette action');
+      return;
+    }
+
+    setIsLoading(true);
+    setSubmitError('');
+
     try {
-      setIsLoading(true);
-      setSubmitError(null);
+      console.log('Données du formulaire:', data);
+      console.log('Images existantes avant normalisation:', existingImages);
+      console.log('Nouvelles images avant normalisation:', images);
+      
+      // Normaliser tous les chemins d'images
+      const normalizedExistingImages = normalizeImagePaths(existingImages || []);
+      const normalizedNewImages = normalizeImagePaths(images || []);
+      
+      // Combiner les images existantes et les nouvelles images
+      const allImages = [...normalizedExistingImages, ...normalizedNewImages];
+      
+      console.log('Toutes les images après normalisation:', allImages);
 
-      if (!chantierId) {
-        throw new Error('Aucun chantier sélectionné');
-      }
-
+      // Préparer les données de l'intervention
       const interventionData = {
         titre: data.titre,
         description: data.description,
@@ -120,66 +227,180 @@ useEffect(() => {
         statut: data.statut || 'planifiee',
         type: data.type || 'maintenance',
         ...(data.prix !== undefined && { prix: parseFloat(data.prix) }),
-        images: images.map(img => img.url || img)
+        images: allImages
       };
 
+      console.log('Données à envoyer après normalisation:', interventionData);
+
       if (isEditing && existingIntervention) {
-        // Mise à jour
+        console.log('Mise à jour de l\'intervention existante:', existingIntervention._id);
         await updateIntervention({
           ...interventionData,
           _id: existingIntervention._id,
           chantier_id: chantierId
         });
       } else {
-        // Création
+        console.log('Création d\'une nouvelle intervention');
         await addIntervention({
           ...interventionData,
           chantier_id: chantierId
         });
       }
   
-      navigate(`/chantiers/${chantierId}`);
+      navigate(`/chantiers/${chantierId}`, {
+        state: { success: `Intervention ${isEditing ? 'mise à jour' : 'créée'} avec succès !` },
+        replace: false
+      });
     } catch (error) {
-      console.error('Erreur:', error);
+      console.error('Erreur lors de la sauvegarde:', error);
       setSubmitError(error.message || 'Une erreur est survenue lors de la sauvegarde');
     } finally {
       setIsLoading(false);
     }
   };
+  useEffect(() => {
+    if (existingIntervention?.images) {
+      console.log('Images avant normalisation:', existingIntervention.images);
+      const normalizedImages = normalizeImagePaths(existingIntervention.images);
+      console.log('Images après normalisation:', normalizedImages);
+      setExistingImages(normalizedImages);
+    }
+  }, [existingIntervention]);
+  
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files)
-    files.forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        setImages(prev => [...prev, e.target.result])
+    setIsUploading(true);
+    setSubmitError(null);
+
+    try {
+      for (const file of files) {
+        // Vérifier le type de fichier
+        if (!file.type.startsWith('image/')) {
+          throw new Error('Seuls les fichiers image sont autorisés');
+        }
+
+        // Vérifier la taille du fichier (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error('La taille maximale d\'une image est de 10MB');
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch(`${API_BASE_URL}/api/upload/image`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+          body: formData
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Échec du téléchargement de l\'image');
+        }
+
+        const result = await response.json();
+        
+        if (result.status === 'success' && result.data) {
+          // Extraire uniquement le chemin relatif (sans l'URL de base)
+          const imagePath = result.data.imageUrl.startsWith('/') 
+            ? result.data.imageUrl 
+            : `/${result.data.imageUrl}`;
+          
+          setImages(prev => [...prev, imagePath]);
+          
+          // Mettre à jour également l'intervention existante si en mode édition
+          if (existingIntervention) {
+            setExistingIntervention(prev => ({
+              ...prev,
+              images: [...(prev.images || []), imagePath]
+            }));
+          }
+        }
       }
-      reader.readAsDataURL(file)
-    })
-  }
+    } catch (error) {
+      console.error('Erreur lors du téléchargement des images:', error);
+      setSubmitError(error.message || 'Erreur lors du téléchargement des images');
+    } finally {
+      setIsUploading(false);
+      // Réinitialiser l'input file pour permettre le téléchargement du même fichier
+      e.target.value = '';
+    }
+  };
 
   const removeImage = (index) => {
-    setImages(prev => prev.filter((_, i) => i !== index))
-  }
+    setImages(prev => {
+      const newImages = [...prev];
+      newImages.splice(index, 1);
+      return newImages;
+    });
+  };
+  const removeExistingImage = (index) => {
+    setExistingImages(prev => {
+      const newImages = [...prev];
+      newImages.splice(index, 1);
+      return newImages;
+    });
+    
+    // Mettre à jour également l'intervention existante si en mode édition
+    if (existingIntervention) {
+      setExistingIntervention(prev => ({
+        ...prev,
+        images: prev.images.filter((_, i) => i !== index)
+      }));
+    }
+  };
 
-  if (isLoading || isLoadingChantier) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
-      </div>
-    );
-  }
+  // Fonction utilitaire pour obtenir l'URL complète d'une image
+  const getFullImageUrl = (imagePath) => {
+    if (!imagePath) return '';
+    
+    // Si c'est déjà une URL complète avec le bon domaine
+    if (typeof imagePath === 'string' && imagePath.startsWith(API_BASE_URL)) {
+      return imagePath;
+    }
+    
+    // Si c'est une URL complète mais avec un mauvais domaine
+    if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+      // Extraire le chemin de l'URL
+      const url = new URL(imagePath);
+      const path = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+      return `${API_BASE_URL}/${path}`;
+    }
+    
+    // Pour les chemins relatifs
+    if (typeof imagePath === 'string') {
+      // Supprimer le slash initial s'il existe
+      const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
+      // S'assurer qu'on a le bon format de chemin
+      const finalPath = cleanPath.startsWith('uploads/') ? cleanPath : `uploads/${cleanPath}`;
+      return `${API_BASE_URL}/${finalPath}`;
+    }
+    
+    console.error('Format de chemin d\'image non géré:', imagePath);
+    return '';
+  };
 
-  if (isEditing && !existingIntervention && !isLoading) {
+  if (isReadOnly) {
     return (
-      <div className="text-center p-8">
-        <p className="text-red-500">Impossible de charger les données de l'intervention.</p>
-        <button
-          onClick={() => navigate(-1)}
-          className="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded"
-        >
-          Retour
-        </button>
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Accès refusé</h2>
+            <p className="text-gray-600 mb-6">
+              Vous n'avez pas les autorisations nécessaires pour {isEditing ? 'modifier' : 'créer'} cette intervention.
+            </p>
+            <button
+              onClick={() => navigate(-1)}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            >
+              Retour
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -213,6 +434,7 @@ useEffect(() => {
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 {...register('titre', { required: 'Le titre est requis' })}
                 defaultValue={existingIntervention?.titre || ''}
+                readOnly={isReadOnly}
               />
               {errors.titre && (
                 <p className="mt-1 text-sm text-red-600">{errors.titre.message}</p>
@@ -226,12 +448,15 @@ useEffect(() => {
               <input
                 id="date"
                 type="datetime-local"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                  isReadOnly ? 'bg-gray-100' : ''
+                }`}
                 {...register('date', { required: 'La date est requise' })}
                 defaultValue={existingIntervention?.date_intervention 
                   ? new Date(existingIntervention.date_intervention).toISOString().slice(0, 16)
                   : ''
                 }
+                readOnly={isReadOnly}
               />
               {errors.date && (
                 <p className="mt-1 text-sm text-red-600">{errors.date.message}</p>
@@ -247,9 +472,12 @@ useEffect(() => {
                 type="number"
                 min="0"
                 step="0.5"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                  isReadOnly ? 'bg-gray-100' : ''
+                }`}
                 {...register('duree')}
                 defaultValue={existingIntervention?.duree || ''}
+                readOnly={isReadOnly}
               />
             </div>
 
@@ -262,7 +490,9 @@ useEffect(() => {
                 type="number"
                 min="0"
                 step="0.01"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                  isReadOnly ? 'bg-gray-100' : ''
+                }`}
                 {...register('prix', {
                   valueAsNumber: true,
                   min: {
@@ -270,17 +500,17 @@ useEffect(() => {
                     message: 'Le prix ne peut pas être négatif'
                   }
                 })}
-                value={watch('prix') || ''} // S'assurer que la valeur est une chaîne vide si undefined
-    onChange={(e) => {
-      // Permettre de vider le champ
-      const value = e.target.value === '' ? undefined : e.target.value;
-      setValue('prix', value, { shouldValidate: true });
-    }}
-  />
-  {errors.prix && (
-    <p className="mt-1 text-sm text-red-600">{errors.prix.message}</p>
-  )}
-</div>
+                value={watch('prix') || ''} 
+                onChange={(e) => {
+                  const value = e.target.value === '' ? undefined : e.target.value;
+                  setValue('prix', value, { shouldValidate: true });
+                }}
+                readOnly={isReadOnly}
+              />
+              {errors.prix && (
+                <p className="mt-1 text-sm text-red-600">{errors.prix.message}</p>
+              )}
+            </div>
 
             <div>
               <label htmlFor="statut" className="block text-sm font-medium text-gray-700 mb-1">
@@ -288,9 +518,12 @@ useEffect(() => {
               </label>
               <select
                 id="statut"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                  isReadOnly ? 'bg-gray-100' : ''
+                }`}
                 {...register('statut')}
                 defaultValue={existingIntervention?.statut || 'planifiee'}
+                readOnly={isReadOnly}
               >
                 <option value="planifiee">Planifiée</option>
                 <option value="en_cours">En cours</option>
@@ -307,9 +540,12 @@ useEffect(() => {
             <textarea
               id="description"
               rows={4}
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+              className={`w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
+                isReadOnly ? 'bg-gray-100' : ''
+              }`}
               {...register('description')}
               defaultValue={existingIntervention?.description || ''}
+              readOnly={isReadOnly}
             />
           </div>
 
@@ -318,87 +554,167 @@ useEffect(() => {
             <div className="mt-6">
               <h3 className="text-sm font-medium text-gray-700 mb-2">Images existantes</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {existingIntervention.images.map((image, index) => (
-                  <div key={index} className="relative group">
-                    <img 
-                      src={image} 
-                      alt={`Image ${index + 1}`} 
-                      className="w-full h-32 object-cover rounded-md"
-                    />
+                {existingIntervention.images.map((image, index) => {
+                  if (!image) return null;
+                  
+                  const imageUrl = getImageUrl(image);
+                  console.log(`Rendu de l'image existante ${index}:`, imageUrl);
+                  
+                  return (
+                    <div key={`existing-${index}`} className="relative group">
+                      <div className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden border border-gray-200 hover:border-indigo-300 transition-colors">
+                        <img 
+                          src={imageUrl}
+                          alt={`Image ${index + 1}`}
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => handleImageError(e, imageUrl)}
+                          loading="lazy"
+                        />
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => removeExistingImage(index)}
+                            className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Supprimer l'image"
+                          >
+                            <X className="w-4 h-4 text-red-600" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* Section des nouvelles images */}
+          {images.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Nouvelles images</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {images.map((image, index) => (
+                  <div key={`new-${index}`} className="relative group">
+                    <div className="relative w-full h-32 bg-gray-50 rounded-md overflow-hidden border border-gray-200 hover:border-indigo-300 transition-colors">
+                      <img 
+                        src={getImageUrl(image)}
+                        alt={`Image ${index + 1}`}
+                        className="w-full h-full object-contain p-1"
+                        onError={(e) => handleImageError(e, getImageUrl(image))}
+                        loading="lazy"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeImage(index)}
+                        className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Supprimer l'image"
+                      >
+                        <X className="w-4 h-4 text-red-600" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
-
           {/* Section d'ajout d'images */}
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              {existingIntervention?.images?.length > 0 ? 'Ajouter des images' : 'Images'}
-            </label>
-            <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
-              <div className="space-y-1 text-center">
-                <div className="flex text-sm text-gray-600">
-                  <label
-                    htmlFor="file-upload"
-                    className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500"
-                  >
-                    <span>Télécharger des fichiers</span>
-                    <input
-                      id="file-upload"
-                      name="file-upload"
-                      type="file"
-                      className="sr-only"
-                      multiple
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </label>
-                  <p className="pl-1">ou glisser-déposer</p>
-                </div>
-                <p className="text-xs text-gray-500">
-                  PNG, JPG, GIF jusqu'à 10MB
-                </p>
-              </div>
-            </div>
-
-            {/* Aperçu des images téléchargées */}
-            {images.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Nouvelles images</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {images.map((image, index) => (
-                    <div key={index} className="relative group">
-                      <img 
-                        src={image} 
-                        alt={`Nouvelle image ${index + 1}`} 
-                        className="w-full h-32 object-cover rounded-md"
+          {!isReadOnly && (
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {existingIntervention?.images?.length > 0 ? 'Ajouter des images' : 'Images'}
+              </label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div className="space-y-1 text-center">
+                  <div className="flex text-sm text-gray-600">
+                    <label
+                      htmlFor="file-upload"
+                      className="relative cursor-pointer bg-white rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                    >
+                      <span>Télécharger des fichiers</span>
+                      <input
+                        id="file-upload"
+                        name="file-upload"
+                        type="file"
+                        className="sr-only"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        disabled={isUploading}
                       />
-                      <button
-                        type="button"
-                        onClick={() => removeImage(index)}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Supprimer l'image"
-                      >
-                        <X size={16} />
-                      </button>
+                    </label>
+                    <p className="pl-1">ou glisser-déposer</p>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, GIF jusqu'à 10MB
+                  </p>
+                  {isUploading && (
+                    <div className="mt-2">
+                      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-600 rounded-full animate-pulse"></div>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Téléchargement en cours...</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Aperçu des images téléchargées */}
+              {images.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Nouvelles images</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {images.map((image, index) => (
+                      <div key={index} className="relative group border border-gray-200 rounded-md p-1">
+                        <div className="relative w-full h-32 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
+                          <img
+                            src={getImageUrl(image)}
+                            alt={`Nouvelle image ${index + 1}`}
+                            className="max-w-full max-h-full object-contain"
+                            onError={(e) => handleImageError(e, getImageUrl(image))}
+                          />
+                        </div>
+                        {!isReadOnly && (
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            title="Supprimer l'image"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Bouton de soumission */}
-          <div className="mt-8 flex justify-end">
-            <button
-              type="submit"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <Save size={18} className="mr-2" />
-              {isEditing ? 'Mettre à jour' : 'Créer'} l'intervention
-            </button>
-          </div>
+          {!isReadOnly && (
+            <div className="mt-8 flex justify-end">
+              <button
+                type="submit"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Enregistrement...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} className="mr-2" />
+                    {isEditing ? 'Mettre à jour' : 'Créer'} l'intervention
+                  </>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Message d'erreur */}
           {submitError && (
@@ -421,5 +737,6 @@ useEffect(() => {
       </form>
     </div>
   );
-}
+};
+
 export default InterventionForm;

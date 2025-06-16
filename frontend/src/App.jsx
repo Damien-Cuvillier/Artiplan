@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 // Pages
@@ -18,29 +18,69 @@ import EditIntervention from './components/EditIntervention'
 
 // Layout
 import Layout from './components/layout/Layout'
+import Loader from './components/ui/Loader';
 
 // Composant pour protéger les routes
 const ProtectedRoute = ({ children }) => {
-  const { user } = useAuthStore()
+  const { user, isLoading } = useAuthStore()
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader />
+      </div>
+    );
+  }
+  
   return user ? children : <Navigate to="/login" replace />
 }
 
 // Composant pour rediriger si déjà connecté
 const PublicRoute = ({ children }) => {
-  const { user } = useAuthStore()
+  const { user, isLoading } = useAuthStore()
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader />
+      </div>
+    );
+  }
+  
   return !user ? children : <Navigate to="/dashboard" replace />
 }
 
 function App() {
-  const { initializeAuth } = useAuthStore();
+  const { initializeAuth, isLoading } = useAuthStore();
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    initializeAuth();
+    const initAuth = async () => {
+      try {
+        await initializeAuth();
+      } catch (error) {
+        console.error('Erreur lors de l\'initialisation de l\'authentification:', error);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+    
+    initAuth();
   }, [initializeAuth]);
+
+  // Afficher un loader pendant l'initialisation
+  if (!isInitialized || isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader />
+      </div>
+    );
+  }
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
-      <ToastContainer 
+        <ToastContainer 
           position="top-right"
           autoClose={5000}
           hideProgressBar={false}

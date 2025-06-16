@@ -1,5 +1,4 @@
-const Joi = require('joi');
-
+import Joi from 'joi';
 
 const createChantierSchema = Joi.object({
   titre: Joi.string()
@@ -71,7 +70,7 @@ const createChantierSchema = Joi.object({
     })
 });
 
-const validateChantier = (req, res, next) => {
+export const validateChantier = (req, res, next) => {
   const { error } = createChantierSchema.validate(req.body, { 
     abortEarly: false,
     allowUnknown: false,
@@ -102,6 +101,5 @@ const validateChantier = (req, res, next) => {
   next();
 };
 
-module.exports = {
-  validateChantier
-};
+// Export par défaut pour la rétrocompatibilité
+export default { validateChantier };

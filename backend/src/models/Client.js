@@ -1,5 +1,5 @@
 // src/models/Client.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const clientSchema = new mongoose.Schema({
   nom: { type: String, required: true },
@@ -18,4 +18,5 @@ const clientSchema = new mongoose.Schema({
   actif: { type: Boolean, default: true }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Client', clientSchema);
+const Client = mongoose.model('Client', clientSchema);
+export default Client;

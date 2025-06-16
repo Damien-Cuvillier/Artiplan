@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import { protect, restrictTo } from '../middleware/auth.js';
+import * as clientController from '../controllers/clientController.js';
+
 const router = express.Router();
-const { protect, restrictTo } = require('../middleware/authMiddleware');
-const clientController = require('../controllers/clientController');
 
 // Protection des routes
 router.use(protect);
@@ -17,4 +18,4 @@ router.route('/:id')
   .patch(clientController.updateClient)
   .delete(clientController.deleteClient);
 
-module.exports = router;
+export default router;

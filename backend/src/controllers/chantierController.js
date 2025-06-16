@@ -1,8 +1,8 @@
 // src/controllers/chantierController.js
-const mongoose = require('mongoose');
-const Chantier = require('../models/Chantier');
+import mongoose from 'mongoose';
+import Chantier from '../models/Chantier.js';
 
-exports.creerChantier = async (req, res) => {
+export const creerChantier = async (req, res) => {
   try {
     const { 
       titre, 
@@ -73,7 +73,7 @@ exports.creerChantier = async (req, res) => {
   }
 };
 
-exports.getChantier = async (req, res) => {
+export const getChantier = async (req, res) => {
   try {
     const chantier = await Chantier.findById(req.params.id)
       .populate('responsable_id', 'nom prenom')
@@ -103,7 +103,7 @@ exports.getChantier = async (req, res) => {
   }
 };
 
-exports.supprimerChantier = async (req, res) => {
+export const supprimerChantier = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
   
@@ -149,7 +149,7 @@ exports.supprimerChantier = async (req, res) => {
   }
 };
 
-exports.listeChantiers = async (req, res) => {
+export const listeChantiers = async (req, res) => {
   try {
     const chantiers = await Chantier.find()
       .populate('responsable_id', 'nom prenom')
@@ -171,35 +171,37 @@ exports.listeChantiers = async (req, res) => {
     });
   }
 };
-// Dans chantierController.js
-// fetchChantierById: async (id) => {
-//   set({ isLoading: true, error: null });
-//   try {
-//     const token = localStorage.getItem('token');
-//     const response = await fetch(`${API_BASE_URL}/api/chantiers/${id}`, {
-//       headers: {
-//         'Authorization': `Bearer ${token}`,
-//         'Content-Type': 'application/json'
-//       }
-//     });
 
-//     if (!response.ok) {
-//       const errorData = await response.json();
-//       throw new Error(errorData.message || 'Erreur lors de la récupération du chantier');
-//     }
+// Fonction pour le frontend - à déplacer dans le store Zustand si nécessaire
+export const fetchChantierById = async (id, token) => {
+  try {
+    const response = await fetch(`${process.env.API_BASE_URL || ''}/api/chantiers/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-//     const responseData = await response.json();
-//     console.log('Chantier reçu:', responseData);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Erreur lors de la récupération du chantier');
+    }
+
+    const responseData = await response.json();
+    console.log('Chantier reçu:', responseData);
     
-//     set(state => ({
-//       currentChantier: responseData.data.chantier,
-//       isLoading: false
-//     }));
+    return responseData.data.chantier;
+  } catch (error) {
+    console.error('Erreur fetchChantierById:', error);
+    throw error;
+  }
+};
 
-//     return responseData.data.chantier;
-//   } catch (error) {
-//     console.error('Erreur fetchChantierById:', error);
-//     set({ error: error.message, isLoading: false });
-//     throw error;
-//   }
-// }
+// Export par défaut pour la rétrocompatibilité
+export default {
+  creerChantier,
+  getChantier,
+  supprimerChantier,
+  listeChantiers,
+  fetchChantierById
+};

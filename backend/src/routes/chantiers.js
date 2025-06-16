@@ -1,18 +1,24 @@
-const express = require('express');
+import express from 'express';
+import { protect, restrictTo } from '../middleware/auth.js';
+import { validateChantier } from '../validators/chantier.validator.js';
+import Chantier from '../models/Chantier.js';
+import * as chantierController from '../controllers/chantierController.js';
+
 const router = express.Router();
-const { protect, restrictTo } = require('../middleware/authMiddleware');
-const { validateChantier } = require('../validators/chantier.validator');
-const Chantier = require('../models/Chantier');
-const chantierController = require('../controllers/chantierController');
+
 // Appliquer l'authentification à toutes les routes
 router.use(protect);
+
+// Routes avec le contrôleur
 router.route('/')
   .get(chantierController.listeChantiers)
   .post(chantierController.creerChantier);
-  router.route('/:id')
+
+router.route('/:id')
   .get(chantierController.getChantier);
+
 // GET /api/chantiers - Récupérer tous les chantiers (accessible par admin et gestionnaire)
-router.get('/', protect, restrictTo('admin', 'gestionnaire'), async (req, res) => {
+router.get('/', restrictTo('admin', 'gestionnaire'), async (req, res) => {
   try {
     console.log('Utilisateur authentifié:', req.user); // Pour débogage
     const chantiers = await Chantier.find()
@@ -117,4 +123,4 @@ router.delete('/:id',
   chantierController.supprimerChantier
 );
 
-module.exports = router;
+export default router;

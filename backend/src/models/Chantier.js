@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const chantierSchema = new mongoose.Schema({
   titre: { 
@@ -7,16 +7,16 @@ const chantierSchema = new mongoose.Schema({
     trim: true
   },
   reference: { 
-    type: String, 
-    unique: true,
-    default: function() {
-      const date = new Date();
-      const year = date.getFullYear().toString().slice(-2);
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const random = Math.floor(1000 + Math.random() * 9000);
-      return `CH-${year}${month}-${random}`;
-    }
-  },
+  type: String, 
+  unique: true,
+  default: function() {
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const random = Math.floor(1000 + Math.random() * 9000);
+    return `CH-${year}${month}-${random}`;
+  }
+},
   description: {
     type: String,
     trim: true
@@ -147,4 +147,5 @@ chantierSchema.statics.updateChantierProgress = async function(chantierId) {
   }
 };
 
-module.exports = mongoose.model('Chantier', chantierSchema);
+const Chantier = mongoose.model('Chantier', chantierSchema);
+export default Chantier;

@@ -1,15 +1,18 @@
-const express = require('express');
+import express from 'express';
+import mongoose from 'mongoose';
+import { protect, restrictTo } from '../middleware/auth.js';
+import * as interventionController from '../controllers/interventionController.js';
+import { validateIntervention } from '../validators/intervention.validator.js';
+import Intervention from '../models/Intervention.js';
+import User from '../models/User.js';
+import Chantier from '../models/Chantier.js';
+
 const router = express.Router();
-const mongoose = require('mongoose');
-const interventionController = require('../controllers/interventionController');
-const { protect, restrictTo } = require('../middleware/authMiddleware');
-const { validateIntervention } = require('../validators/intervention.validator');
-const Intervention = require('../models/Intervention');
-const User = require('../models/User');
-const Chantier = require('../models/Chantier'); // Assurez-vous que le chemin est correct
+
 // Protéger toutes les routes
 router.use(protect);
 
+// Créer une intervention pour un chantier
 router.post('/chantier/:chantierId', 
   restrictTo('admin', 'gestionnaire', 'technicien'),
   validateIntervention,
@@ -28,6 +31,7 @@ router.route('/chantier/:chantierId')
 // Récupérer les interventions par technicien
 router.route('/technicien/:technicienId')
   .get(interventionController.getInterventionsByTechnicien);
+
 // GET /api/interventions - Récupérer toutes les interventions
 router.get('/', async (req, res) => {
   console.log('Tentative de récupération des interventions...');
@@ -70,6 +74,7 @@ router.get('/', async (req, res) => {
     });
   }
 });
+
 // Opérations sur une intervention spécifique
 router.route('/:id')
   .get(interventionController.getIntervention)
@@ -83,4 +88,4 @@ router.route('/:id')
     interventionController.deleteIntervention
   );
 
-module.exports = router;
+export default router;
