@@ -129,7 +129,13 @@ useEffect(() => {
     console.log('Images avant normalisation:', existingIntervention.images);
     const normalizedImages = normalizeImagePaths(existingIntervention.images);
     console.log('Images après normalisation:', normalizedImages);
+    
+    // Mettre à jour les images existantes et vider les nouvelles images
     setExistingImages(normalizedImages);
+    setImages([]); // Réinitialiser les nouvelles images
+  } else {
+    setExistingImages([]);
+    setImages([]);
   }
 }, [existingIntervention]);
   useEffect(() => {
@@ -212,9 +218,15 @@ useEffect(() => {
       // Normaliser tous les chemins d'images
       const normalizedExistingImages = normalizeImagePaths(existingImages || []);
       const normalizedNewImages = normalizeImagePaths(images || []);
+      // Filtrer les nouvelles images pour éviter les doublons avec les images existantes
+      const uniqueNewImages = normalizedNewImages.filter(newImg => 
+        !normalizedExistingImages.some(existingImg => 
+          existingImg.endsWith(newImg) || newImg.endsWith(existingImg)
+        )
+      );
       
       // Combiner les images existantes et les nouvelles images
-      const allImages = [...normalizedExistingImages, ...normalizedNewImages];
+      const allImages = [...normalizedExistingImages, ...uniqueNewImages];
       
       console.log('Toutes les images après normalisation:', allImages);
 
@@ -267,6 +279,109 @@ useEffect(() => {
     }
   }, [existingIntervention]);
   
+  // Fonction pour supprimer une image du serveur
+  const deleteImageFromServer = async (imagePath) => {
+    try {
+      console.log('Tentative de suppression de l\'image:', imagePath);
+      
+      // Nettoyer le chemin de l'image pour ne garder que le nom du fichier
+      let filename = imagePath;
+      
+      // Si c'est une URL complète, extraire le nom du fichier
+      if (imagePath.includes('/')) {
+        filename = imagePath.split('/').pop();
+        console.log('Nom du fichier extrait:', filename);
+      }
+      
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/api/upload/image`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ filePath: filename })
+      });
+      
+      const data = await response.json();
+      console.log('Réponse du serveur:', data);
+      
+      if (data.status === 'success') {
+        console.log('Image supprimée du serveur:', filename);
+        return true;
+      } else {
+        console.error('Erreur lors de la suppression du fichier:', data.message);
+        return false;
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression du fichier:', error);
+      return false;
+    }
+  };
+
+  const removeImage = async (index, isExisting = false) => {
+    const imageToDelete = isExisting ? existingImages[index] : images[index];
+    
+    console.log('Suppression de l\'image:', imageToDelete);
+    
+    try {
+      // Supprimer l'image du serveur si c'est une nouvelle image
+      if (!isExisting) {
+        console.log('Suppression du serveur pour une nouvelle image');
+        await deleteImageFromServer(imageToDelete);
+      } else {
+        console.log('Suppression du serveur pour une image existante');
+        // Pour les images existantes, on essaie aussi de les supprimer du serveur
+        await deleteImageFromServer(imageToDelete);
+      }
+      
+      // Mettre à jour l'état local
+      if (isExisting) {
+        setExistingImages(prev => {
+          const newImages = [...prev];
+          newImages.splice(index, 1);
+          console.log('Images existantes après suppression:', newImages);
+          return newImages;
+        });
+        
+        // Mettre à jour également l'intervention existante si en mode édition
+        if (existingIntervention) {
+          setExistingIntervention(prev => {
+            const updated = {
+              ...prev,
+              images: prev.images.filter((_, i) => i !== index)
+            };
+            console.log('Intervention mise à jour après suppression:', updated);
+            return updated;
+          });
+        }
+      } else {
+        setImages(prev => {
+          const newImages = [...prev];
+          newImages.splice(index, 1);
+          console.log('Nouvelles images après suppression:', newImages);
+          return newImages;
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression de l\'image:', error);
+      // Même en cas d'erreur, on met à jour l'interface pour éviter un état incohérent
+      if (isExisting) {
+        setExistingImages(prev => {
+          const newImages = [...prev];
+          newImages.splice(index, 1);
+          return newImages;
+        });
+      } else {
+        setImages(prev => {
+          const newImages = [...prev];
+          newImages.splice(index, 1);
+          return newImages;
+        });
+      }
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files);
     if (files.length === 0) return;
@@ -328,29 +443,6 @@ useEffect(() => {
       setIsUploading(false);
       // Réinitialiser l'input file pour permettre le téléchargement du même fichier
       e.target.value = '';
-    }
-  };
-
-  const removeImage = (index) => {
-    setImages(prev => {
-      const newImages = [...prev];
-      newImages.splice(index, 1);
-      return newImages;
-    });
-  };
-  const removeExistingImage = (index) => {
-    setExistingImages(prev => {
-      const newImages = [...prev];
-      newImages.splice(index, 1);
-      return newImages;
-    });
-    
-    // Mettre à jour également l'intervention existante si en mode édition
-    if (existingIntervention) {
-      setExistingIntervention(prev => ({
-        ...prev,
-        images: prev.images.filter((_, i) => i !== index)
-      }));
     }
   };
 
@@ -573,7 +665,7 @@ useEffect(() => {
                         {!isReadOnly && (
                           <button
                             type="button"
-                            onClick={() => removeExistingImage(index)}
+                            onClick={() => removeImage(index, true)}
                             className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
                             title="Supprimer l'image"
                           >
@@ -672,16 +764,14 @@ useEffect(() => {
                             onError={(e) => handleImageError(e, getImageUrl(image))}
                           />
                         </div>
-                        {!isReadOnly && (
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                            title="Supprimer l'image"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          title="Supprimer l'image"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
                     ))}
                   </div>

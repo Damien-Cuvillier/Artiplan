@@ -75,18 +75,47 @@ export const uploadImage = [
 // Supprimer une image
 export const deleteImage = async (filePath) => {
   try {
-    if (!filePath) return;
+    if (!filePath) {
+      console.error('Aucun chemin de fichier fourni');
+      return false;
+    }
     
-    // Extraire le nom du fichier du chemin
-    const filename = path.basename(filePath);
-    const fullPath = path.join(uploadDir, filename);
+    console.log('Tentative de suppression du fichier. Chemin reçu:', filePath);
+    
+    // Nettoyer le chemin du fichier
+    let cleanPath = filePath;
+    
+    // Si c'est une URL complète, extraire le chemin
+    if (filePath.startsWith('http')) {
+      try {
+        const url = new URL(filePath);
+        cleanPath = url.pathname;
+        console.log('URL détectée, chemin extrait:', cleanPath);
+      } catch (e) {
+        console.error('Erreur lors du parsing de l\'URL:', e);
+      }
+    }
+    
+    // Supprimer le préfixe /uploads/ s'il existe
+    if (cleanPath.startsWith('/uploads/')) {
+      cleanPath = cleanPath.substring('/uploads/'.length);
+      console.log('Préfixe /uploads/ supprimé, chemin nettoyé:', cleanPath);
+    }
+    
+    // Construire le chemin complet
+    const fullPath = path.join(uploadDir, cleanPath);
+    console.log('Chemin complet du fichier à supprimer:', fullPath);
     
     if (fs.existsSync(fullPath)) {
+      console.log('Le fichier existe, tentative de suppression...');
       await fs.promises.unlink(fullPath);
-      console.log(`Fichier supprimé : ${fullPath}`);
+      console.log(`Fichier supprimé avec succès: ${fullPath}`);
       return true;
+    } else {
+      console.error(`Le fichier n'existe pas: ${fullPath}`);
+      console.log('Contenu du répertoire:', fs.readdirSync(uploadDir));
+      return false;
     }
-    return false;
   } catch (error) {
     console.error('Erreur lors de la suppression du fichier:', error);
     return false;
