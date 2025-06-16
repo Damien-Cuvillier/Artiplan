@@ -81,17 +81,39 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Servir les fichiers statiques avec en-têtes CORS
-app.use('/uploads', (req, res, next) => {
-  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
-  express.static(uploadsDir, {
-    setHeaders: (res) => {
-      res.header('Access-Control-Allow-Origin', '*')
-      res.header('Access-Control-Allow-Methods', 'GET')
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+// Configuration des en-têtes pour les fichiers statiques
+const staticOptions = {
+  setHeaders: (res, path) => {
+    // Autoriser toutes les origines pour les images (à restreindre en production)
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    // Désactiver la mise en cache pour faciliter le débogage
+    res.header('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
+    
+    // Permettre l'affichage des images dans les iframes et les PDF
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.header('Cross-Origin-Embedder-Policy', 'require-corp');
+    res.header('Cross-Origin-Opener-Policy', 'same-origin');
+    
+    // Type MIME pour les images
+    if (path.endsWith('.png')) {
+      res.header('Content-Type', 'image/png');
+    } else if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+      res.header('Content-Type', 'image/jpeg');
+    } else if (path.endsWith('.gif')) {
+      res.header('Content-Type', 'image/gif');
+    } else if (path.endsWith('.webp')) {
+      res.header('Content-Type', 'image/webp');
     }
-  })(req, res, next)
-});
+  }
+};
+
+// Servir les fichiers statiques avec les en-têtes configurés
+app.use('/uploads', express.static(uploadsDir, staticOptions));
 
 // Routes
 app.use('/api/auth', authRoutes);

@@ -140,6 +140,21 @@ const ChantierDetail = () => {
     navigate(`#${tab === 'details' ? '' : tab}`, { replace: true });
   }, [navigate]);
 
+  // Gestion de l'ouverture de l'aperçu PDF
+  const handleOpenPdfPreview = useCallback(async () => {
+    try {
+      // S'assurer que les interventions sont chargées
+      await fetchInterventionsByChantier(id);
+      setShowPdfPreview(true);
+    } catch (error) {
+      console.error('Erreur lors du chargement des interventions:', error);
+      setLocalError({
+        message: 'Impossible de charger les interventions pour le PDF',
+        isRateLimit: error.message?.includes('429') || error.message?.includes('Trop de requêtes')
+      });
+    }
+  }, [id, fetchInterventionsByChantier]);
+
   // Afficher l'état de chargement
   if ((isLoading && isInitialLoad) || isRetrying) {
     return (
@@ -239,7 +254,7 @@ const ChantierDetail = () => {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={() => setShowPdfPreview(true)}
+              onClick={handleOpenPdfPreview}
               className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <Eye className="h-4 w-4 mr-1" />

@@ -1,5 +1,5 @@
 // Composant PDF Document
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, PDFViewer } from '@react-pdf/renderer'
+import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, PDFViewer, Image } from '@react-pdf/renderer'
 import { FileText, Download, Eye, Calendar, MapPin, Clock, User, Euro, CheckCircle } from 'lucide-react'
 
 // Styles pour le PDF
@@ -146,6 +146,37 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 2
   },
+  imagesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 4,
+    gap: 8,
+  },
+  imageWrapper: {
+    width: '48%', 
+    marginBottom: 12,
+    border: '1px solid #e5e7eb',
+    borderRadius: 4,
+    padding: 4,
+    backgroundColor: '#f9fafb',
+  },
+  image: {
+    width: '100%',
+    maxHeight: 200, 
+    objectFit: 'contain', 
+  },
+  imageLabel: {
+    fontSize: 8,
+    color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  noImagesText: {
+    fontSize: 8,
+    color: '#9ca3af',
+    fontStyle: 'italic',
+    marginTop: 4
+  },
   footer: {
     position: 'absolute',
     bottom: 30,
@@ -159,6 +190,53 @@ const styles = StyleSheet.create({
     paddingTop: 10
   }
 });
+
+const getFullImageUrl = (imagePath) => {
+  if (!imagePath) {
+    console.log('❌ Aucun chemin d\'image fourni');
+    return '';
+  }
+  
+  console.log('🔍 Traitement du chemin d\'image:', imagePath);
+  
+  // Si c'est une URL pointant vers localhost:3000, on la réécrit pour pointer vers le backend
+  if (typeof imagePath === 'string' && imagePath.includes('localhost:3000')) {
+    const url = new URL(imagePath);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    const filename = pathParts.pop();
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const finalUrl = `${baseUrl}/uploads/${filename}`;
+    console.log('🔄 URL convertie de localhost:3000 vers backend:', finalUrl);
+    return finalUrl;
+  }
+  
+  // Si c'est déjà une URL complète (hors localhost:3000), on la retourne
+  if (typeof imagePath === 'string' && 
+      (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+    console.log('✅ URL complète détectée:', imagePath);
+    return imagePath;
+  }
+  
+  // URL de base du backend
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  
+  // Nettoyer le chemin
+  let cleanPath = imagePath;
+  
+  // Supprimer les éventuels slashes initiaux
+  cleanPath = cleanPath.replace(/^\/+/, '');
+  
+  // S'assurer que le chemin commence par uploads/
+  if (!cleanPath.startsWith('uploads/')) {
+    cleanPath = `uploads/${cleanPath}`;
+  }
+  
+  // Construire l'URL finale
+  const finalUrl = `${baseUrl}/${cleanPath}`.replace(/([^:]\/)\/+/g, '$1');
+  
+  console.log('🔗 URL finale générée:', finalUrl);
+  return finalUrl;
+};
 
 const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
     // Calculs
@@ -278,51 +356,112 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
           </View>
   
           {/* Détail des interventions */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Détail des interventions</Text>
-            {interventions.map((int, index) => (
-              <View key={index} style={[
-                styles.interventionItem, 
-                { 
-                  flexDirection: 'row', 
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 8,
-                  padding: 8,
-                  border: '1px solid #e5e7eb',
-                  borderRadius: 4
-                }
-              ]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>
-                    {int.titre}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 12, fontSize: 9, color: '#6b7280' }}>
-                    <Text>{formatDate(int.date_intervention || int.date)}</Text>
-                    <Text>{int.duree}h</Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                  <Text style={{ 
-                    fontSize: 9, 
-                    fontWeight: 'medium',
-                    minWidth: 70,
-                    textAlign: 'right'
-                  }}>
-                    {getStatutLabel(int.statut)}
-                  </Text>
-                  <Text style={{ 
-                    fontSize: 10, 
-                    fontWeight: 'bold',
-                    minWidth: 60,
-                    textAlign: 'right'
-                  }}>
-                    {int.prix ? `${int.prix.toLocaleString('fr-FR')}€` : '-'}
-                  </Text>
-                </View>
-              </View>
-            ))}
+<View style={styles.section}>
+  <Text style={styles.sectionTitle}>Détail des interventions</Text>
+  {interventions.map((int, index) => {
+    const interventionImages = Array.isArray(int.images) ? int.images : [];
+    
+    return (
+      <View 
+        key={index} 
+        style={[
+          styles.interventionItem, 
+          { 
+            flexDirection: 'column', 
+            marginBottom: 16,
+            padding: 12,
+            border: '1px solid #e5e7eb',
+            borderRadius: 4
+          }
+        ]}
+      >
+        {/* En-tête de l'intervention */}
+        <View style={{ 
+          flexDirection: 'row', 
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: interventionImages.length > 0 ? 8 : 0
+        }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', marginBottom: 2 }}>
+              {int.titre}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, fontSize: 9, color: '#6b7280' }}>
+              <Text>{formatDate(int.date_intervention || int.date)}</Text>
+              <Text>{int.duree}h</Text>
+            </View>
           </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+            <Text style={{ 
+              fontSize: 9, 
+              fontWeight: 'medium',
+              minWidth: 70,
+              textAlign: 'right'
+            }}>
+              {getStatutLabel(int.statut)}
+            </Text>
+            <Text style={{ 
+              fontSize: 10, 
+              fontWeight: 'bold',
+              minWidth: 60,
+              textAlign: 'right'
+            }}>
+              {int.prix ? `${int.prix.toLocaleString('fr-FR')}€` : '-'}
+            </Text>
+          </View>
+        </View>
+        
+        {/* Section des images */}
+        {interventionImages.length > 0 ? (
+          <View style={styles.imagesContainer}>
+            {interventionImages.map((img, imgIndex) => {
+              if (!img) {
+                console.log(`❌ Image à l'index ${imgIndex} est undefined ou null`);
+                return null;
+              }
+              
+              const imageUrl = getFullImageUrl(img);
+              console.log(`🖼️ Tentative de chargement de l'image ${imgIndex}:`, imageUrl);
+              
+              return (
+                <View key={`img-${index}-${imgIndex}`} style={styles.imageWrapper}>
+                  <Image 
+                    src={imageUrl}
+                    style={styles.image}
+                    cache={false}
+                    onError={(e) => {
+                      console.error(`❌ Erreur de chargement de l'image ${imgIndex}:`, {
+                        url: imageUrl,
+                        originalPath: img,
+                        error: e.message || 'Erreur inconnue'
+                      });
+                    }}
+                    onLoad={() => {
+                      console.log(`✅ Image chargée avec succès:`, imageUrl);
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        ) : (
+          <Text style={{ fontSize: 9, color: '#9ca3af', fontStyle: 'italic' }}>
+            Aucune photo disponible pour cette intervention
+          </Text>
+        )}
+        
+        {/* Description de l'intervention */}
+        {int.description && (
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ fontSize: 9, color: '#4b5563' }}>
+              {int.description}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  })}
+</View>
   
           {/* Tableau détaillé */}
           <View style={styles.section}>
