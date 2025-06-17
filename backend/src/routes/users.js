@@ -16,5 +16,7 @@ router.post('/', userController.register);
 // Autres routes...
 router.get('/me', userController.getProfile);
 router.get('/', userController.getAllUsers);
+router.get('/notifications', userController.getNotificationPreferences);
+router.patch('/notifications', userController.updateNotificationPreferences);
 
 export default router;

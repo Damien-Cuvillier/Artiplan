@@ -25,10 +25,10 @@ export const canDeleteChantier = (user) => {
   return isAdmin(user);
 };
 
-export const canEditIntervention = (user) => {
+export const canEditIntervention = () => {
   return true; // Les techniciens peuvent modifier leurs interventions
 };
 
-export const canUpdateInterventionStatus = (user) => {
+export const canUpdateInterventionStatus = () => {
   return true; // Tous les utilisateurs peuvent mettre à jour le statut
 };

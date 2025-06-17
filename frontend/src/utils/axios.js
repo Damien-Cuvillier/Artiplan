@@ -31,6 +31,6 @@ api.interceptors.response.use(
         // Rediriger vers la page de connexion
         window.location.href = '/login';
       }
-      
+    }
       // Vous pouvez ajouter d'autres traitements d'erreur ici
     })

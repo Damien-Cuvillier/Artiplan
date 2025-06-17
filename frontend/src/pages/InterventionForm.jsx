@@ -40,7 +40,6 @@ const InterventionForm = () => {
     updateIntervention, 
     interventions, 
     fetchChantierById, 
-    isLoading: isLoadingChantier,
   } = useChantierStore()
   
   const { canEditIntervention } = useUserRole();
@@ -195,7 +194,6 @@ useEffect(() => {
   useEffect(() => {
     if (isEditing && !canEditIntervention) {
       setIsReadOnly(true);
-      loadIntervention();
     } else if (chantierId) {
       fetchChantierById(chantierId);
     }
@@ -444,36 +442,6 @@ useEffect(() => {
       // Réinitialiser l'input file pour permettre le téléchargement du même fichier
       e.target.value = '';
     }
-  };
-
-  // Fonction utilitaire pour obtenir l'URL complète d'une image
-  const getFullImageUrl = (imagePath) => {
-    if (!imagePath) return '';
-    
-    // Si c'est déjà une URL complète avec le bon domaine
-    if (typeof imagePath === 'string' && imagePath.startsWith(API_BASE_URL)) {
-      return imagePath;
-    }
-    
-    // Si c'est une URL complète mais avec un mauvais domaine
-    if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
-      // Extraire le chemin de l'URL
-      const url = new URL(imagePath);
-      const path = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
-      return `${API_BASE_URL}/${path}`;
-    }
-    
-    // Pour les chemins relatifs
-    if (typeof imagePath === 'string') {
-      // Supprimer le slash initial s'il existe
-      const cleanPath = imagePath.startsWith('/') ? imagePath.slice(1) : imagePath;
-      // S'assurer qu'on a le bon format de chemin
-      const finalPath = cleanPath.startsWith('uploads/') ? cleanPath : `uploads/${cleanPath}`;
-      return `${API_BASE_URL}/${finalPath}`;
-    }
-    
-    console.error('Format de chemin d\'image non géré:', imagePath);
-    return '';
   };
 
   if (isReadOnly) {

@@ -1,9 +1,9 @@
-// src/components/PDFViewerModal.jsx
+// src/components/pdf/PDFViewer.jsx
 import { memo } from 'react';
 import { X } from 'lucide-react';
-import { PDFViewer } from '@react-pdf/renderer';
+import { PDFViewer as ReactPDFViewer } from '@react-pdf/renderer';
 
-const PDFViewerModal = memo(({ isOpen, onClose, children }) => {
+const PDFViewer = memo(({ isOpen, onClose, children }) => {
   if (!isOpen) return null;
 
   return (
@@ -32,9 +32,9 @@ const PDFViewerModal = memo(({ isOpen, onClose, children }) => {
           
           {/* PDF Viewer */}
           <div className="h-[80vh] w-full">
-            <PDFViewer width="100%" height="100%">
+            <ReactPDFViewer width="100%" height="100%">
               {children}
-            </PDFViewer>
+            </ReactPDFViewer>
           </div>
           
           {/* Footer */}
@@ -53,5 +53,5 @@ const PDFViewerModal = memo(({ isOpen, onClose, children }) => {
   );
 });
 
-PDFViewerModal.displayName = 'PDFViewerModal';
-export default PDFViewerModal;
+PDFViewer.displayName = 'PDFViewer';
+export default PDFViewer;

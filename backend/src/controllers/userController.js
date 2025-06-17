@@ -2,7 +2,7 @@
 import User from '../models/User.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-
+import asyncHandler from 'express-async-handler';
 /**
  * Obtenir le profil de l'utilisateur connecté
  * @route GET /api/users/me
@@ -24,6 +24,38 @@ export const getProfile = async (req, res) => {
     });
   }
 };
+const updateNotificationPreferences = asyncHandler(async (req, res) => {
+  const { notifications } = req.body;
+  const userId = req.user.id;
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $set: { notifications } },
+    { new: true, runValidators: true }
+  ).select('-password');
+
+  if (!user) {
+    res.status(404);
+    throw new Error('Utilisateur non trouvé');
+  }
+
+  res.json({
+    _id: user._id,
+    nom: user.nom,
+    email: user.email,
+    notifications: user.notifications
+  });
+});
+const getNotificationPreferences = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id).select('notifications');
+  
+  if (!user) {
+    res.status(404);
+    throw new Error('Utilisateur non trouvé');
+  }
+
+  res.json(user.notifications);
+});
 
 /**
  * Mettre à jour le profil de l'utilisateur connecté
@@ -192,5 +224,7 @@ export default {
   updateProfile,
   register,
   getAllUsers,
-  deactivateUser
+  deactivateUser,
+  updateNotificationPreferences,
+  getNotificationPreferences
 };

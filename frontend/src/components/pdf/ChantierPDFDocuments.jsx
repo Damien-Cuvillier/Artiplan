@@ -1,6 +1,6 @@
 // Composant PDF Document
-import { PDFDownloadLink, Document, Page, Text, View, StyleSheet, PDFViewer, Image } from '@react-pdf/renderer'
-import { FileText, Download, Eye, Calendar, MapPin, Clock, User, Euro, CheckCircle } from 'lucide-react'
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
+
 
 // Styles pour le PDF
 const styles = StyleSheet.create({

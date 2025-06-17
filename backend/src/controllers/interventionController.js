@@ -3,7 +3,17 @@ import AppError from '../utils/appError.js';
 import catchAsync from '../utils/catchAsync.js';
 import Chantier from '../models/Chantier.js';
 import { deleteImage } from './uploadController.js';
+import { sendNotification } from '../services/notificationService.js';
+import User from '../models/User.js';
 
+const intervention = await Intervention.create({ });
+const user = await User.findById(req.user.id);
+
+// Envoyer une notification
+await sendNotification(user, 'NEW_INTERVENTION', {
+  date: intervention.dateDebut,
+  chantier: intervention.chantierNom
+});
 // Fonction utilitaire pour nettoyer les anciennes images
 const cleanupOldImages = async (interventionId) => {
   try {
@@ -80,7 +90,7 @@ export const createIntervention = catchAsync(async (req, res, next) => {
   console.log('Intervention à enregistrer:', JSON.stringify(intervention, null, 2));
 
   await intervention.save();
-
+  await sendNotification.newIntervention(intervention);
   console.log('Intervention enregistrée avec succès, ID:', intervention._id);
   console.log('Images enregistrées:', intervention.images);
 
@@ -190,7 +200,16 @@ export const updateIntervention = catchAsync(async (req, res, next) => {
       runValidators: true
     }
   );
-
+  if (intervention) {
+    // Détecter les changements
+    const changes = Object.keys(updateData).filter(key => 
+      updateData[key] !== undefined && 
+      !['updatedAt', '__v', '_id'].includes(key)
+    );
+  
+    // Envoyer les notifications
+    await sendNotification.interventionUpdated(intervention, changes);
+  }
   if (!intervention) {
     return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
   }

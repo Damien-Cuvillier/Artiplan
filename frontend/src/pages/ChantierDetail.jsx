@@ -4,12 +4,11 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useChantierStore } from '../store/chantierStore';
 import { PencilIcon, ArrowLeftIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Eye, Download, AlertCircle } from 'lucide-react';
-import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
-import ChantierPDFDocument from '../components/ChantierPDFDocuments';
+import { PDFViewer } from '@react-pdf/renderer';
+import ChantierPDFDocument from '../components/pdf/ChantierPDFDocuments';
 import InterventionList from '../components/InterventionList';
 import Progress from '../components/ui/Progress';
-import PDFDownloadButton from '../components/PDFDownloadButton';
-import PDFExport from '../components/PDFExport';
+import PDFDownloadButton from '../components/pdf/PDFDownloadButton';
 import StatusBadge from '../components/ui/StatusBadge';
 // Composant d'erreur réutilisable
 const ErrorMessage = ({ message, onRetry, className = '' }) => (

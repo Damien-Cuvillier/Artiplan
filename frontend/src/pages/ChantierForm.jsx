@@ -21,7 +21,6 @@ const ChantierForm = () => {
   const isEditing = !!id;
   
   const { 
-    isAdmin, 
     canEditChantier 
   } = useUserRole();
   

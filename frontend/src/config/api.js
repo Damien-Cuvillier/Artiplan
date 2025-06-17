@@ -45,11 +45,6 @@ export const getImageUrl = (imagePath) => {
   // Construire l'URL complète
   const imageUrl = `${API_BASE_URL}/${cleanPath}`;
   
-  // En développement, ajouter un timestamp pour éviter le cache
-  if (process.env.NODE_ENV === 'development') {
-    return `${imageUrl}?t=${Date.now()}`;
-  }
-  
   return imageUrl;
 };
 

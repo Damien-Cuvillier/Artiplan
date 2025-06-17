@@ -87,26 +87,46 @@ export const useAuthStore = create((set) => ({
   },
 
   // Initialiser l'authentification au chargement de l'application
-  initializeAuth: async () => {
+  initializeAuth: () => {
     const token = localStorage.getItem('token');
     const user = getStoredUser();
     
-    if (!token || !user) {
-      set({ isAuthenticated: false, user: null });
-      return false;
+    if (token && user) {
+      set({
+        user,
+        token,
+        isAuthenticated: true,
+        isLoading: false
+      });
+      return { user, isAuthenticated: true };
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      set({
+        user: null,
+        token: null,
+        isAuthenticated: false,
+        isLoading: false
+      });
+      return { user: null, isAuthenticated: false };
     }
+  },
+  
+  // Mettre à jour les informations de l'utilisateur
+  updateUser: (updatedUser) => {
+    const currentUser = getStoredUser();
+    if (!currentUser) return;
     
-    // Simplement vérifier que le token et l'utilisateur existent
-    // sans appeler l'API /me
-    set({ 
-      user,
-      token,
-      isAuthenticated: true,
-      isLoading: false,
-      error: null
-    });
+    // Fusionner les données existantes avec les nouvelles
+    const mergedUser = { ...currentUser, ...updatedUser };
     
-    return true;
+    // Mettre à jour le localStorage
+    localStorage.setItem('user', JSON.stringify(mergedUser));
+    
+    // Mettre à jour le state
+    set({ user: mergedUser });
+    
+    return mergedUser;
   }
 }));
 
