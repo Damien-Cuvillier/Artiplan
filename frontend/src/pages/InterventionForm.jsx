@@ -98,28 +98,21 @@ const normalizeImagePaths = (images) => {
   return images.map(img => {
     if (!img) return null;
     
-    // Si c'est déjà un chemin relatif, le retourner tel quel
-    if (typeof img === 'string' && img.startsWith('/uploads/')) {
+    // Si c'est une URL complète, la retourner telle quelle
+    if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
       return img;
     }
     
-    // Si c'est une URL complète, extraire le chemin
-    if (typeof img === 'string' && (img.startsWith('http://') || img.startsWith('https://'))) {
-      try {
-        const url = new URL(img);
-        return url.pathname; // Retourne le chemin avec le / au début
-      } catch (e) {
-        console.error('Erreur lors du parsing de l\'URL de l\'image:', img, e);
-        return null;
-      }
-    }
+    // Nettoyer le chemin
+    let cleanPath = String(img).trim();
     
-    // Si c'est un chemin sans le / initial, l'ajouter
-    if (typeof img === 'string' && !img.startsWith('/')) {
-      return `/${img}`;
-    }
+    // Supprimer les préfixes /uploads/ pour éviter les doublons
+    cleanPath = cleanPath.replace(/^\/+|\/+$/g, ''); // Supprimer les slashes au début et à la fin
+    cleanPath = cleanPath.replace(/^uploads\//, ''); // Supprimer le préfixe uploads/ s'il existe
     
-    return img;
+    // Pour le stockage dans le state, on garde le chemin relatif sans le préfixe
+    // car getImageUrl l'ajoutera automatiquement
+    return cleanPath;
   }).filter(Boolean);
 };
 

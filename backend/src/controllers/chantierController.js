@@ -172,6 +172,80 @@ export const listeChantiers = async (req, res) => {
   }
 };
 
+export const getMesChantiers = async (req, res) => {
+  try {
+    const chantiers = await Chantier.find({ 
+      $or: [
+        { responsable_id: req.user._id },
+        { 'membres_equipe': req.user._id }
+      ]
+    })
+    .populate('responsable_id', 'nom prenom')
+    .sort({ date_debut: -1 });
+    
+    res.status(200).json({
+      status: 'success',
+      results: chantiers.length,
+      data: {
+        chantiers
+      }
+    });
+  } catch (err) {
+    console.error('Erreur lors de la récupération de mes chantiers:', err);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la récupération de mes chantiers',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+export const updateChantier = async (req, res) => {
+  try {
+    const chantier = await Chantier.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    )
+    .populate('responsable_id', 'nom prenom');
+    
+    if (!chantier) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Aucun chantier trouvé avec cet ID'
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        chantier
+      }
+    });
+  } catch (err) {
+    console.error('Erreur lors de la mise à jour du chantier:', err);
+    
+    if (err.name === 'ValidationError') {
+      const errors = Object.values(err.errors).map(el => ({
+        field: el.path,
+        message: el.message
+      }));
+      
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Erreur de validation',
+        errors
+      });
+    }
+    
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la mise à jour du chantier',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
 // Fonction pour le frontend - à déplacer dans le store Zustand si nécessaire
 export const fetchChantierById = async (id, token) => {
   try {
@@ -203,5 +277,7 @@ export default {
   getChantier,
   supprimerChantier,
   listeChantiers,
+  getMesChantiers,
+  updateChantier,
   fetchChantierById
 };

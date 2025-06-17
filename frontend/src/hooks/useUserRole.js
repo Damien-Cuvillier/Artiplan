@@ -1,5 +1,10 @@
 import { useAuthStore } from '../store/authStore';
-import { ROLES } from '../utils/roles';
+
+// Constantes des rôles
+export const ROLES = {
+  ADMIN: 'admin',
+  TECHNICIAN: 'technician'
+};
 
 const useUserRole = () => {
   const { user } = useAuthStore();

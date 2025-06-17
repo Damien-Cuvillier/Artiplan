@@ -1,7 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
-import { isAdmin, isTechnician } from '../../utils/roles';
+import useUserRole from '../../hooks/useUserRole';
 
 export const RoleBasedRoute = ({ 
   children, 
@@ -10,7 +10,8 @@ export const RoleBasedRoute = ({
   technicianOnly = false,
   redirectTo = '/unauthorized'
 }) => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { isAuthenticated } = useAuthStore();
+  const { isAdmin, isTechnician } = useUserRole();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -20,13 +21,13 @@ export const RoleBasedRoute = ({
   let hasAccess = false;
   
   if (adminOnly) {
-    hasAccess = isAdmin(user);
+    hasAccess = isAdmin;
   } else if (technicianOnly) {
-    hasAccess = isTechnician(user);
+    hasAccess = isTechnician;
   } else if (allowedRoles.length > 0) {
     hasAccess = allowedRoles.some(role => {
-      if (role === 'admin') return isAdmin(user);
-      if (role === 'technician') return isTechnician(user);
+      if (role === 'admin') return isAdmin;
+      if (role === 'technician') return isTechnician;
       return false;
     });
   } else {

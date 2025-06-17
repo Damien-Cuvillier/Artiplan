@@ -28,16 +28,9 @@ const cleanupOldImages = async (interventionId) => {
  * @access Privé (Technicien+)
  */
 export const createIntervention = catchAsync(async (req, res, next) => {
-  console.log('Données reçues dans createIntervention:', JSON.stringify(req.body, null, 2));
-  console.log('Images reçues dans req.body.images:', req.body.images);
-  
   const { titre, description, date_intervention, duree, statut, type, prix, images = [] } = req.body;
   const technicien_id = req.user.id;
   const chantier_id = req.params.chantierId || req.body.chantier_id;
-
-  console.log('Chantier ID:', chantier_id);
-  console.log('Technicien ID:', technicien_id);
-  console.log('Images avant formatage:', images);
 
   // Vérifier que le chantier existe
   const chantier = await Chantier.findById(chantier_id);
@@ -48,23 +41,29 @@ export const createIntervention = catchAsync(async (req, res, next) => {
   // Valider et formater les chemins d'images
   const formattedImages = Array.isArray(images) 
     ? images.map(img => {
-        if (typeof img !== 'string') {
-          console.log('Image ignorée - pas une chaîne:', img);
+        if (typeof img !== 'string' || !img.trim()) {
           return null;
         }
         // Si c'est déjà une URL complète, on la garde
         if (img.startsWith('http')) {
-          console.log('URL complète détectée:', img);
           return img;
         }
-        // Si c'est un chemin relatif, on s'assure qu'il commence par /uploads/
-        const formatted = img.startsWith('/uploads/') ? img : `/uploads/${img}`;
-        console.log('Chemin formaté:', formatted);
+        // Nettoyer le chemin
+        let cleanPath = img.trim();
+        
+        // Supprimer les slashes au début et à la fin
+        cleanPath = cleanPath.replace(/^\/+|\/+$/g, '');
+        
+        // Si le chemin ne commence pas par uploads/, l'ajouter
+        if (!cleanPath.startsWith('uploads/')) {
+          cleanPath = `uploads/${cleanPath}`;
+        }
+        
+        // Ajouter le slash au début pour le stockage en base
+        const formatted = `/${cleanPath}`;
         return formatted;
       }).filter(Boolean)
     : [];
-
-  console.log('Images après formatage:', formattedImages);
 
   // Créer l'intervention
   const intervention = await Intervention.create({
@@ -90,8 +89,14 @@ export const createIntervention = catchAsync(async (req, res, next) => {
         user.email,
         'NEW_INTERVENTION',
         {
-          date: intervention.date_intervention,
-          chantier: chantier.nom || 'Sans nom'
+          dateDebut: intervention.date_intervention,
+          chantierNom: chantier.nom || 'Sans nom',
+          titre: intervention.titre,
+          description: intervention.description,
+          duree: intervention.duree,
+          prix: intervention.prix,
+          type: intervention.type,
+          _id: intervention._id
         }
       );
     } catch (error) {
@@ -99,9 +104,6 @@ export const createIntervention = catchAsync(async (req, res, next) => {
       // Ne pas échouer la requête si l'envoi d'email échoue
     }
   }
-
-  console.log('Intervention enregistrée avec succès, ID:', intervention._id);
-  console.log('Images enregistrées:', intervention.images);
 
   res.status(201).json({
     status: 'success',
@@ -171,35 +173,36 @@ export const getIntervention = catchAsync(async (req, res, next) => {
  * @access Privé (Technicien+)
  */
 export const updateIntervention = catchAsync(async (req, res, next) => {
-  console.log('Données reçues dans updateIntervention:', JSON.stringify(req.body, null, 2));
-  console.log('Images reçues dans req.body.images:', req.body.images);
-  
   const { images, ...updateData } = req.body;
   
   // Si des images sont fournies, on formate les chemins
   if (Array.isArray(images)) {
-    console.log('Images avant formatage:', images);
-    
     updateData.images = images.map(img => {
-      if (typeof img !== 'string') {
-        console.log('Image ignorée - pas une chaîne:', img);
+      if (typeof img !== 'string' || !img.trim()) {
         return null;
       }
+      
+      // Si c'est déjà une URL complète, la retourner telle quelle
       if (img.startsWith('http')) {
-        console.log('URL complète détectée:', img);
         return img;
       }
-      const formatted = img.startsWith('/uploads/') ? img : `/uploads/${img}`;
-      console.log('Chemin formaté:', formatted);
+      
+      // Nettoyer le chemin
+      let cleanPath = img.trim();
+      
+      // Supprimer les slashes au début et à la fin
+      cleanPath = cleanPath.replace(/^\/+|\/+$/g, '');
+      
+      // Si le chemin ne commence pas par uploads/, l'ajouter
+      if (!cleanPath.startsWith('uploads/')) {
+        cleanPath = `uploads/${cleanPath}`;
+      }
+      
+      // Ajouter le slash au début pour le stockage en base
+      const formatted = `/${cleanPath}`;
       return formatted;
     }).filter(Boolean);
-    
-    console.log('Images après formatage:', updateData.images);
-  } else {
-    console.log('Aucune image fournie pour la mise à jour');
   }
-
-  console.log('Données de mise à jour:', JSON.stringify(updateData, null, 2));
 
   const intervention = await Intervention.findByIdAndUpdate(
     req.params.id,
@@ -209,22 +212,10 @@ export const updateIntervention = catchAsync(async (req, res, next) => {
       runValidators: true
     }
   );
-  if (intervention) {
-    // Détecter les changements
-    const changes = Object.keys(updateData).filter(key => 
-      updateData[key] !== undefined && 
-      !['updatedAt', '__v', '_id'].includes(key)
-    );
-  
-    // Envoyer les notifications
-    await sendEmail.interventionUpdated(intervention, changes);
-  }
+
   if (!intervention) {
     return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
   }
-
-  console.log('Intervention mise à jour avec succès, ID:', intervention._id);
-  console.log('Images après mise à jour:', intervention.images);
 
   res.status(200).json({
     status: 'success',
@@ -270,6 +261,24 @@ export const deleteIntervention = catchAsync(async (req, res, next) => {
   });
 });
 
+/**
+ * Obtenir toutes les interventions
+ * @route GET /api/interventions
+ * @access Privé
+ */
+export const getAllInterventions = catchAsync(async (req, res) => {
+  const interventions = await Intervention.find({})
+    .populate('technicien_id', 'nom prenom')
+    .populate('chantier_id', 'titre client_nom')
+    .sort({ date_intervention: -1 });
+
+  res.status(200).json({
+    status: 'success',
+    results: interventions.length,
+    data: { interventions }
+  });
+});
+
 // Export par défaut pour la rétrocompatibilité
 export default {
   createIntervention,
@@ -277,5 +286,6 @@ export default {
   getInterventionsByTechnicien,
   getIntervention,
   updateIntervention,
-  deleteIntervention
+  deleteIntervention,
+  getAllInterventions
 };

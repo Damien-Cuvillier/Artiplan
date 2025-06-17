@@ -113,9 +113,28 @@ interventionSchema.methods.toJSON = function() {
   
   // Ajouter l'URL complète pour les images
   if (intervention.images && intervention.images.length > 0) {
-    intervention.images = intervention.images.map(img => 
-      img.startsWith('http') ? img : `${process.env.BASE_URL}${img}`
-    );
+    intervention.images = intervention.images.map(img => {
+      // Si c'est déjà une URL complète, la retourner telle quelle
+      if (img.startsWith('http')) {
+        return img;
+      }
+      
+      // Si c'est un chemin relatif, construire l'URL complète
+      if (img.startsWith('/uploads/')) {
+        const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+        return `${baseUrl}${img}`;
+      }
+      
+      // Si c'est juste le nom du fichier, ajouter le préfixe /uploads/
+      if (!img.startsWith('/')) {
+        const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+        return `${baseUrl}/uploads/${img}`;
+      }
+      
+      // Pour les autres cas, utiliser l'URL de base
+      const baseUrl = process.env.BASE_URL || 'http://localhost:5000';
+      return `${baseUrl}${img}`;
+    });
   }
   
   return intervention;

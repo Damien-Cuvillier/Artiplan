@@ -199,18 +199,7 @@ const getFullImageUrl = (imagePath) => {
   
   console.log('🔍 Traitement du chemin d\'image:', imagePath);
   
-  // Si c'est une URL pointant vers localhost:3000, on la réécrit pour pointer vers le backend
-  if (typeof imagePath === 'string' && imagePath.includes('localhost:3000')) {
-    const url = new URL(imagePath);
-    const pathParts = url.pathname.split('/').filter(Boolean);
-    const filename = pathParts.pop();
-    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-    const finalUrl = `${baseUrl}/uploads/${filename}`;
-    console.log('🔄 URL convertie de localhost:3000 vers backend:', finalUrl);
-    return finalUrl;
-  }
-  
-  // Si c'est déjà une URL complète (hors localhost:3000), on la retourne
+  // Si c'est déjà une URL complète, la retourner telle quelle
   if (typeof imagePath === 'string' && 
       (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
     console.log('✅ URL complète détectée:', imagePath);
@@ -221,18 +210,14 @@ const getFullImageUrl = (imagePath) => {
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
   
   // Nettoyer le chemin
-  let cleanPath = imagePath;
+  let cleanPath = String(imagePath).trim();
   
-  // Supprimer les éventuels slashes initiaux
-  cleanPath = cleanPath.replace(/^\/+/, '');
+  // Supprimer les préfixes /uploads/ pour éviter les doublons
+  cleanPath = cleanPath.replace(/^\/+|\/+$/g, ''); // Supprimer les slashes au début et à la fin
+  cleanPath = cleanPath.replace(/^uploads\//, ''); // Supprimer le préfixe uploads/ s'il existe
   
-  // S'assurer que le chemin commence par uploads/
-  if (!cleanPath.startsWith('uploads/')) {
-    cleanPath = `uploads/${cleanPath}`;
-  }
-  
-  // Construire l'URL finale
-  const finalUrl = `${baseUrl}/${cleanPath}`.replace(/([^:]\/)\/+/g, '$1');
+  // Construire l'URL finale avec un seul préfixe /uploads/
+  const finalUrl = `${baseUrl}/uploads/${cleanPath}`;
   
   console.log('🔗 URL finale générée:', finalUrl);
   return finalUrl;
@@ -406,7 +391,9 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
               minWidth: 60,
               textAlign: 'right'
             }}>
-              {int.prix ? `${int.prix.toLocaleString('fr-FR')}€` : '-'}
+              <Text style={[styles.tableCell, { textAlign: 'right', paddingRight: 8 }]}>
+              {int.prix ? `${int.prix}€` : '-'}
+              </Text>
             </Text>
           </View>
         </View>

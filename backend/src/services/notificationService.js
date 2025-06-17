@@ -53,20 +53,8 @@ const transporter = nodemailer.createTransport({
     maxCachedSessions: 0
   }
 });
-// Log de la configuration SMTP
-console.log('Configuration SMTP:');
-console.log('- Hôte:', process.env.SMTP_HOST);
-console.log('- Port:', process.env.SMTP_PORT);
-console.log('- Utilisateur:', process.env.SMTP_USER);
-console.log('- Mot de passe:', process.env.SMTP_PASSWORD ? '***' : 'non défini');
-console.log('- From:', process.env.SMTP_FROM);
-console.log('- Secure:', process.env.SMTP_SECURE);
-console.log('- TLS:', process.env.SMTP_TLS);
-console.log('- Family:', process.env.SMTP_FAMILY);
-console.log('- DNS:', process.env.SMTP_DNS);
 
-
-
+// Vérifier la connexion SMTP au démarrage
 transporter.verify(function(error, success) {
   if (error) {
     console.error('Erreur de connexion SMTP:', error);
@@ -74,8 +62,7 @@ transporter.verify(function(error, success) {
     console.log('Serveur SMTP prêt à envoyer des emails');
   }
 });
-// Activer le logging détaillé
-transporter.on('log', console.log);
+
 // Templates de notification
 const notificationTemplates = {
   NEW_INTERVENTION: (data) => {
@@ -84,16 +71,15 @@ const notificationTemplates = {
     const timeStr = formatTime(date);
 
     return {
-      subject: `📅 Nouvelle intervention - ${data.chantierNom}`,
+      subject: `📅 Nouvelle intervention - ${data.titre}`,
       text: `Nouvelle intervention planifiée :
 
+Titre: ${data.titre}
 Chantier: ${data.chantierNom}
 Date: ${dateStr} à ${timeStr}
-Type: ${data.type || 'Non spécifié'}
+${data.duree ? `Durée estimée: ${data.duree} heures` : ''}
+${data.prix ? `Prix: ${data.prix}€` : ''}
 ${data.description ? `Description: ${data.description}` : ''}
-
-Pour plus de détails, connectez-vous à votre espace client :
-${process.env.FRONTEND_URL}
 
 Cordialement,
 L'équipe Chantier App`,
@@ -105,38 +91,33 @@ L'équipe Chantier App`,
           </div>
           
           <div style="padding: 20px; background-color: #f9fafb;">
-            <h2 style="color: #1f2937;">${data.chantierNom}</h2>
+            <h2 style="color: #1f2937;">${data.titre}</h2>
+            <p style="color: #6b7280; margin-bottom: 20px;">Chantier: ${data.chantierNom}</p>
             
             <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <p style="margin: 10px 0;">
                 <strong>📅 Date :</strong> ${dateStr} à ${timeStr}
               </p>
-              <p style="margin: 10px 0;">
-                <strong>🏷️ Type :</strong> ${data.type || 'Non spécifié'}
-              </p>
+              ${data.duree ? `
+                <p style="margin: 10px 0;">
+                  <strong>⏱️ Durée estimée :</strong> ${data.duree} heures
+                </p>
+              ` : ''}
+              ${data.prix ? `
+                <p style="margin: 10px 0;">
+                  <strong>💰 Prix :</strong> ${data.prix}€
+                </p>
+              ` : ''}
               ${data.description ? `
                 <div style="margin: 15px 0; padding: 10px; background: #f3f4f6; border-radius: 4px;">
-                  <p style="margin: 0; font-style: italic;">${data.description}</p>
+                  <p style="margin: 0; font-style: italic;"><strong>Description :</strong> ${data.description}</p>
                 </div>
               ` : ''}
-              
-              <a href="${process.env.FRONTEND_URL}/interventions/${data._id}" 
-                 style="display: inline-block; background-color: #2563eb; color: white; 
-                        text-decoration: none; padding: 10px 20px; border-radius: 4px; 
-                        margin-top: 10px;">
-                Voir les détails
-              </a>
             </div>
           </div>
           
           <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
             <p>© 2025 Chantier App. Tous droits réservés.</p>
-            <p>
-              <a href="${process.env.FRONTEND_URL}/settings/notifications" 
-                 style="color: #6b7280; text-decoration: none;">
-                Gérer mes préférences
-              </a>
-            </p>
           </div>
         </div>
       `
@@ -217,14 +198,6 @@ function getStatusColor(status) {
 const sendEmail = async (to, templateName, data) => {
   try {
     const template = notificationTemplates[templateName](data);
-    
-    console.log('Configuration SMTP:', {
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      secure: process.env.SMTP_SECURE,
-      user: process.env.SMTP_USER ? '***' : 'non défini',
-      from: process.env.SMTP_FROM
-    });
     
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM,

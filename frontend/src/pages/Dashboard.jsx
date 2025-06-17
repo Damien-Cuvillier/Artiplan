@@ -12,9 +12,16 @@ import {
 } from 'lucide-react'
 import { useChantierStore } from '../store/chantierStore'
 import { useAuthStore } from '../store/authStore'
-import { priorityLabels } from '../data/chantiers'
 import StatusBadge from '../components/ui/StatusBadge'
 import { useChantierStatus } from '../hooks/useChantierStatus'
+
+// Labels de priorité
+const priorityLabels = {
+  low: 'Basse',
+  medium: 'Moyenne',
+  high: 'Haute',
+  urgent: 'Urgent'
+};
 
 const getPriorityColor = (priority) => {
   const colors = {

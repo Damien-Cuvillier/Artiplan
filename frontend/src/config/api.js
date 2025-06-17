@@ -1,5 +1,5 @@
 // src/config/api.js
-export const API_BASE_URL = 'http://localhost:5000';
+export const API_BASE_URL = ''; // Utilise le proxy Vite
 
 export const API_ENDPOINTS = {
   AUTH: {
@@ -22,30 +22,19 @@ export const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
   
   // Si c'est déjà une URL complète, la retourner telle quelle
-  if (imagePath.startsWith('http')) {
-    // Vérifier si c'est une URL avec un mauvais domaine
-    try {
-      const url = new URL(imagePath);
-      if (url.origin !== new URL(API_BASE_URL).origin) {
-        // Si le domaine est différent, reconstruire l'URL avec le bon domaine
-        return `${API_BASE_URL}${url.pathname.startsWith('/') ? '' : '/'}${url.pathname}`;
-      }
-    } catch (e) {
-      console.error('Erreur lors du parsing de l\'URL de l\'image:', imagePath, e);
-    }
+  if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
     return imagePath;
   }
   
-  // Nettoyer le chemin pour éviter les doublons
-  let cleanPath = imagePath;
-  while (cleanPath.startsWith('/')) {
-    cleanPath = cleanPath.substring(1);
-  }
+  // Nettoyer le chemin
+  let cleanPath = String(imagePath).trim();
   
-  // Construire l'URL complète
-  const imageUrl = `${API_BASE_URL}/${cleanPath}`;
+  // Supprimer tous les préfixes /uploads/ pour éviter les doublons
+  cleanPath = cleanPath.replace(/^\/+|\/+$/g, ''); // Supprimer les slashes au début et à la fin
+  cleanPath = cleanPath.replace(/^uploads\//, ''); // Supprimer le préfixe uploads/ s'il existe
   
-  return imageUrl;
+  // Construire l'URL complète avec le proxy
+  return `/uploads/${cleanPath}`;
 };
 
 export const fetchWithAuth = async (url, options = {}) => {
