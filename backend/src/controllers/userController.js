@@ -24,7 +24,12 @@ export const getProfile = async (req, res) => {
     });
   }
 };
-const updateNotificationPreferences = asyncHandler(async (req, res) => {
+/**
+ * Mettre à jour les préférences de notification
+ * @route PATCH /api/users/notifications
+ * @access Privé
+ */
+export const updateNotificationPreferences = asyncHandler(async (req, res) => {
   const { notifications } = req.body;
   const userId = req.user.id;
 
@@ -46,7 +51,12 @@ const updateNotificationPreferences = asyncHandler(async (req, res) => {
     notifications: user.notifications
   });
 });
-const getNotificationPreferences = asyncHandler(async (req, res) => {
+/**
+ * Obtenir les préférences de notification
+ * @route GET /api/users/notifications
+ * @access Privé
+ */
+export const getNotificationPreferences = asyncHandler(async (req, res) => {
   const user = await User.findById(req.user.id).select('notifications');
   
   if (!user) {
@@ -54,7 +64,9 @@ const getNotificationPreferences = asyncHandler(async (req, res) => {
     throw new Error('Utilisateur non trouvé');
   }
 
-  res.json(user.notifications);
+  res.json({
+    notifications: user.notifications || {}
+  });
 });
 
 /**

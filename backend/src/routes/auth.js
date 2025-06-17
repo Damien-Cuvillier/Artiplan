@@ -2,7 +2,7 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
-import { login } from '../controllers/authController.js';
+import { login, register } from '../controllers/authController.js';
 import { authLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
@@ -23,25 +23,23 @@ const auth = async (req, res, next) => {
     }
 
     req.user = user;
-    req.token = token;
     next();
-  } catch (err) {
-    res.status(401).json({ message: 'Veuillez vous authentifier' });
+  } catch (error) {
+    console.error('Erreur d\'authentification:', error);
+    return res.status(401).json({ message: 'Non autorisé' });
   }
 };
 
-// Login
+// Routes
 router.post('/login', authLimiter, login);
+router.post('/register', authLimiter, register);
 
 // Vérifier le token
 router.get('/verify', auth, (req, res) => {
-  res.json({
-    user: {
-      id: req.user._id,
-      email: req.user.email,
-      nom: req.user.nom,
-      prenom: req.user.prenom,
-      role: req.user.role
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user: req.user
     }
   });
 });

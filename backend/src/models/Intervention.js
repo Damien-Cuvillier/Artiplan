@@ -54,7 +54,7 @@ const interventionSchema = new mongoose.Schema(
     technicien_id: {
       type: mongoose.Schema.ObjectId,
       ref: 'User',
-      required: [true, 'Une intervention doit avoir un technicien']
+      default: null
     },
     chantier_id: {
       type: mongoose.Schema.ObjectId,
@@ -108,15 +108,14 @@ interventionSchema.methods.toJSON = function() {
   
   // Formater la date pour un affichage plus lisible
   if (intervention.date_intervention) {
-    intervention.date_intervention = intervention.date_intervention.toISOString().split('T')[0];
+    intervention.date_intervention = new Date(intervention.date_intervention).toISOString();
   }
   
   // Ajouter l'URL complète pour les images
   if (intervention.images && intervention.images.length > 0) {
-    intervention.images = intervention.images.map(img => {
-      if (img.startsWith('http')) return img;
-      return `${process.env.APP_URL || 'http://localhost:3000'}${img}`;
-    });
+    intervention.images = intervention.images.map(img => 
+      img.startsWith('http') ? img : `${process.env.BASE_URL}${img}`
+    );
   }
   
   return intervention;

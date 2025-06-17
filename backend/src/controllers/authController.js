@@ -51,6 +51,74 @@ export const login = async (req, res) => {
     });
   }
 };
+
+export const register = async (req, res) => {
+  try {
+    const { nom, email, password, passwordConfirm, role = 'user', telephone, entreprise } = req.body;
+
+    // 1) Vérifier que tous les champs requis sont présents
+    if (!nom || !email || !password || !passwordConfirm) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Veuillez fournir tous les champs requis (nom, email, mot de passe, confirmation du mot de passe)'
+      });
+    }
+
+    // 2) Vérifier que les mots de passe correspondent
+    if (password !== passwordConfirm) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Les mots de passe ne correspondent pas'
+      });
+    }
+
+    // 3) Vérifier que l'email n'existe pas déjà
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Un compte avec cet email existe déjà'
+      });
+    }
+
+    // 4) Créer le nouvel utilisateur
+    const newUser = await User.create({
+      nom,
+      email,
+      password,
+      role: role === 'admin' ? 'admin' : 'user', // S'assurer que le rôle est valide
+      telephone,
+      entreprise
+    });
+
+    // 5) Générer le token JWT
+    const token = jwt.sign(
+      { id: newUser._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '90d' }
+    );
+
+    // 6) Retourner la réponse (sans le mot de passe)
+    newUser.password = undefined;
+    
+    res.status(201).json({
+      status: 'success',
+      token,
+      data: {
+        user: newUser
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur lors de l\'inscription:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la création du compte',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 export const protect = async (req, res, next) => {
   try {
     let token;
@@ -97,4 +165,10 @@ export const protect = async (req, res, next) => {
     console.error('Erreur dans le middleware protect:', err);
     return next(new AppError('Erreur d\'authentification. Veuillez vous reconnecter.', 401));
   }
+};
+
+export default {
+  login,
+  register,
+  protect
 };

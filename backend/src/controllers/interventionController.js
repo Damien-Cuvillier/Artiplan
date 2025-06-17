@@ -3,17 +3,9 @@ import AppError from '../utils/appError.js';
 import catchAsync from '../utils/catchAsync.js';
 import Chantier from '../models/Chantier.js';
 import { deleteImage } from './uploadController.js';
-import { sendNotification } from '../services/notificationService.js';
+import { sendEmail, notificationTemplates } from '../services/notificationService.js';
 import User from '../models/User.js';
 
-const intervention = await Intervention.create({ });
-const user = await User.findById(req.user.id);
-
-// Envoyer une notification
-await sendNotification(user, 'NEW_INTERVENTION', {
-  date: intervention.dateDebut,
-  chantier: intervention.chantierNom
-});
 // Fonction utilitaire pour nettoyer les anciennes images
 const cleanupOldImages = async (interventionId) => {
   try {
@@ -74,23 +66,40 @@ export const createIntervention = catchAsync(async (req, res, next) => {
 
   console.log('Images après formatage:', formattedImages);
 
-  const intervention = new Intervention({
+  // Créer l'intervention
+  const intervention = await Intervention.create({
     titre,
     description,
     date_intervention: date_intervention || new Date(),
     duree: duree || 0,
-    statut: statut || 'planifiee',
-    type: type || 'maintenance',
+    statut: statut || 'planifiée',
+    type,
     prix,
     images: formattedImages,
-    technicien_id,
-    chantier_id
+    technicien_id: technicien_id,  
+    chantier_id: chantier_id       
   });
 
-  console.log('Intervention à enregistrer:', JSON.stringify(intervention, null, 2));
+  // Récupérer l'utilisateur pour l'email
+  const user = await User.findById(technicien_id);
+  
+  // Envoyer une notification par email
+  if (user && user.email) {
+    try {
+      await sendEmail(
+        user.email,
+        'NEW_INTERVENTION',
+        {
+          date: intervention.date_intervention,
+          chantier: chantier.nom || 'Sans nom'
+        }
+      );
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi de la notification:', error);
+      // Ne pas échouer la requête si l'envoi d'email échoue
+    }
+  }
 
-  await intervention.save();
-  await sendNotification.newIntervention(intervention);
   console.log('Intervention enregistrée avec succès, ID:', intervention._id);
   console.log('Images enregistrées:', intervention.images);
 
@@ -208,7 +217,7 @@ export const updateIntervention = catchAsync(async (req, res, next) => {
     );
   
     // Envoyer les notifications
-    await sendNotification.interventionUpdated(intervention, changes);
+    await sendEmail.interventionUpdated(intervention, changes);
   }
   if (!intervention) {
     return next(new AppError('Aucune intervention trouvée avec cet ID', 404));

@@ -5,6 +5,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 // Pages
 import Login from './pages/auth/Login'
+import Register from './pages/auth/Register'
 import Signup from './pages/auth/Signup'
 import Dashboard from './pages/Dashboard'
 import ChantiersList from './pages/ChantiersList'
@@ -97,6 +98,11 @@ function App() {
           <Route path="/login" element={
             <PublicRoute>
               <Login />
+            </PublicRoute>
+          } />
+          <Route path="/register" element={
+            <PublicRoute>
+              <Register />
             </PublicRoute>
           } />
           <Route path="/signup" element={

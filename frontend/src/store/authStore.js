@@ -127,7 +127,47 @@ export const useAuthStore = create((set) => ({
     set({ user: mergedUser });
     
     return mergedUser;
-  }
+  },
+
+  // Fonction d'inscription
+  register: async (userData) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Échec de l\'inscription');
+      }
+  
+      const data = await response.json();
+      
+      // Connecter automatiquement l'utilisateur après l'inscription
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.data.user));
+      
+      set({ 
+        user: data.data.user,
+        token: data.token,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Erreur lors de l\'inscription:', error);
+      set({ 
+        error: error.message || 'Erreur lors de l\'inscription',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
 }));
 
 // Ne pas initialiser automatiquement ici, laissons le composant racine le faire
