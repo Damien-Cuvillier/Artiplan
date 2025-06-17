@@ -1,135 +1,267 @@
 // backend/src/services/notificationService.js
 import nodemailer from 'nodemailer';
 import Chantier from '../models/Chantier.js';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Charger les variables d'environnement
+const envPath = path.resolve(process.cwd(), '.env');
+console.log('Chargement du .env depuis:', envPath);
+dotenv.config({ path: envPath, override: true });
+
+// Formateur de date simple
+const formatDate = (date) => {
+  return new Date(date).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+};
+
+// Formateur d'heure simple
+const formatTime = (date) => {
+  return new Date(date).toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
 // Configuration du transporteur email
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
-  port: process.env.SMTP_PORT || 587,
+  port: parseInt(process.env.SMTP_PORT, 10),
   secure: process.env.SMTP_SECURE === 'true',
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASSWORD
+  },
+  // Forcer l'utilisation d'IPv4
+  tls: {
+    rejectUnauthorized: false,
+    // Désactiver la vérification du nom d'hôte
+    servername: 'smtp.gmail.com'
+  },
+  // Désactiver IPv6
+  family: 4,
+  // Désactiver la mise en cache DNS
+  dns: {
+    ttl: 0,
+    maxCachedSessions: 0
   }
 });
+// Log de la configuration SMTP
+console.log('Configuration SMTP:');
+console.log('- Hôte:', process.env.SMTP_HOST);
+console.log('- Port:', process.env.SMTP_PORT);
+console.log('- Utilisateur:', process.env.SMTP_USER);
+console.log('- Mot de passe:', process.env.SMTP_PASSWORD ? '***' : 'non défini');
+console.log('- From:', process.env.SMTP_FROM);
+console.log('- Secure:', process.env.SMTP_SECURE);
+console.log('- TLS:', process.env.SMTP_TLS);
+console.log('- Family:', process.env.SMTP_FAMILY);
+console.log('- DNS:', process.env.SMTP_DNS);
 
+
+
+transporter.verify(function(error, success) {
+  if (error) {
+    console.error('Erreur de connexion SMTP:', error);
+  } else {
+    console.log('Serveur SMTP prêt à envoyer des emails');
+  }
+});
+// Activer le logging détaillé
+transporter.on('log', console.log);
 // Templates de notification
 const notificationTemplates = {
-    NEW_INTERVENTION: (data) => ({
-      subject: `Nouvelle intervention - ${data.chantierNom}`,
+  NEW_INTERVENTION: (data) => {
+    const date = new Date(data.dateDebut);
+    const dateStr = formatDate(date);
+    const timeStr = formatTime(date);
+
+    return {
+      subject: `📅 Nouvelle intervention - ${data.chantierNom}`,
       text: `Nouvelle intervention planifiée :
-        - Chantier: ${data.chantierNom}
-        - Date: ${new Date(data.dateDebut).toLocaleDateString('fr-FR')}
-        - Type: ${data.type || 'Non spécifié'}
-        - Description: ${data.description || 'Aucune description'}`,
+
+Chantier: ${data.chantierNom}
+Date: ${dateStr} à ${timeStr}
+Type: ${data.type || 'Non spécifié'}
+${data.description ? `Description: ${data.description}` : ''}
+
+Pour plus de détails, connectez-vous à votre espace client :
+${process.env.FRONTEND_URL}
+
+Cordialement,
+L'équipe Chantier App`,
+
       html: `
-        <h2>Nouvelle intervention planifiée</h2>
-        <p><strong>Chantier:</strong> ${data.chantierNom}</p>
-        <p><strong>Date:</strong> ${new Date(data.dateDebut).toLocaleDateString('fr-FR')}</p>
-        <p><strong>Type:</strong> ${data.type || 'Non spécifié'}</p>
-        ${data.description ? `<p><strong>Description:</strong> ${data.description}</p>` : ''}`
-    }),
-    INTERVENTION_UPDATED: (data) => ({
-      subject: `Mise à jour d'intervention - ${data.chantierNom}`,
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #2563eb; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">Nouvelle intervention planifiée</h1>
+          </div>
+          
+          <div style="padding: 20px; background-color: #f9fafb;">
+            <h2 style="color: #1f2937;">${data.chantierNom}</h2>
+            
+            <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <p style="margin: 10px 0;">
+                <strong>📅 Date :</strong> ${dateStr} à ${timeStr}
+              </p>
+              <p style="margin: 10px 0;">
+                <strong>🏷️ Type :</strong> ${data.type || 'Non spécifié'}
+              </p>
+              ${data.description ? `
+                <div style="margin: 15px 0; padding: 10px; background: #f3f4f6; border-radius: 4px;">
+                  <p style="margin: 0; font-style: italic;">${data.description}</p>
+                </div>
+              ` : ''}
+              
+              <a href="${process.env.FRONTEND_URL}/interventions/${data._id}" 
+                 style="display: inline-block; background-color: #2563eb; color: white; 
+                        text-decoration: none; padding: 10px 20px; border-radius: 4px; 
+                        margin-top: 10px;">
+                Voir les détails
+              </a>
+            </div>
+          </div>
+          
+          <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+            <p>© 2025 Chantier App. Tous droits réservés.</p>
+            <p>
+              <a href="${process.env.FRONTEND_URL}/settings/notifications" 
+                 style="color: #6b7280; text-decoration: none;">
+                Gérer mes préférences
+              </a>
+            </p>
+          </div>
+        </div>
+      `
+    };
+  },
+
+  INTERVENTION_UPDATED: (data) => {
+    const statusColors = getStatusColor(data.statut);
+    
+    return {
+      subject: `🔄 Mise à jour - ${data.chantierNom}`,
       text: `L'intervention a été mise à jour :
-        - Chantier: ${data.chantierNom}
-        - Statut: ${data.statut}
-        - Modifications: ${data.changes.join(', ')}`,
+
+Chantier: ${data.chantierNom}
+Statut: ${data.statut}
+Modifications: ${data.changes.join('\n- ')}
+
+Pour plus de détails, connectez-vous à votre espace client :
+${process.env.FRONTEND_URL}
+
+Cordialement,
+L'équipe Chantier App`,
+
       html: `
-        <h2>Intervention mise à jour</h2>
-        <p><strong>Chantier:</strong> ${data.chantierNom}</p>
-        <p><strong>Statut:</strong> ${data.statut}</p>
-        <p><strong>Modifications:</strong> ${data.changes.join(', ')}</p>`
-    })
-  };
-
-// Envoyer un email
-const sendEmail = async (to, template, data) => {
-    try {
-      const { subject, text, html } = template(data);
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM,
-        to,
-        subject,
-        text,
-        html
-      });
-      console.log(`Email envoyé à ${to}`);
-      return true;
-    } catch (error) {
-      console.error('Erreur envoi email:', error);
-      return false;
-    }
-  };
-
-// Envoyer une notification à un utilisateur
-const sendUserNotification = async (user, type, data) => {
-  const { notifications } = user;
-  if (!notifications) return false;
-
-  const template = notificationTemplates[type];
-  if (!template) {
-    console.error(`Template de notification inconnu: ${type}`);
-    return false;
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background-color: #2563eb; color: white; padding: 20px; text-align: center;">
+            <h1 style="margin: 0;">Intervention mise à jour</h1>
+          </div>
+          
+          <div style="padding: 20px; background-color: #f9fafb;">
+            <h2 style="color: #1f2937; margin-top: 0;">${data.chantierNom}</h2>
+            
+            <div style="background: white; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <p style="margin: 10px 0;">
+                <strong>🔄 Statut :</strong> 
+                <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; 
+                             background-color: ${statusColors.bg}; 
+                             color: ${statusColors.text};">
+                  ${data.statut}
+                </span>
+              </p>
+              
+              <div style="margin: 15px 0; padding: 10px; background: #f3f4f6; border-radius: 4px;">
+                <p style="margin: 0 0 10px 0; font-weight: bold;">Modifications :</p>
+                <ul style="margin: 0; padding-left: 20px;">
+                  ${data.changes.map(change => `<li>${change}</li>`).join('')}
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
+            <p>© 2025 Chantier App. Tous droits réservés.</p>
+            <p>
+              <a href="${process.env.FRONTEND_URL}/settings/notifications" 
+                 style="color: #6b7280; text-decoration: none;">
+                Gérer mes préférences
+              </a>
+            </p>
+          </div>
+        </div>
+      `
+    };
   }
-
-  let sent = false;
-
-  // Envoyer par email si activé
-  if (notifications.email?.enabled && user.email) {
-    const emailSent = await sendEmail(user.email, template.email, data);
-    sent = sent || emailSent;
-  }
-
-  return sent;
 };
 
-// Notifier les utilisateurs concernés par une intervention
-const notifyInterventionUsers = async (intervention, type, changes = []) => {
-    try {
-      const chantier = await Chantier.findById(intervention.chantier_id)
-        .populate('responsables', 'email notifications')
-        .populate('client_id', 'email notifications');
-  
-      if (!chantier) {
-        console.error('Chantier non trouvé pour la notification');
-        return false;
-      }
-  
-      const notificationData = {
-        ...intervention.toObject(),
-        chantierNom: chantier.titre || 'Sans nom',
-        changes
-      };
-  
-      const usersToNotify = [
-        ...chantier.responsables,
-        chantier.client_id
-      ].filter(Boolean);
-  
-      const results = await Promise.all(
-        usersToNotify.map(async (user) => {
-          if (!user.notifications?.email?.enabled) return false;
-          return sendEmail(user.email, notificationTemplates[type], notificationData);
-        })
-      );
-  
-      return results.some(Boolean);
-    } catch (error) {
-      console.error('Erreur notification:', error);
-      return false;
-    }
+// Helper function pour les couleurs de statut
+function getStatusColor(status) {
+  const colors = {
+    planifiee: { bg: '#dbeafe', text: '#1e40af' },
+    en_cours: { bg: '#fef3c7', text: '#92400e' },
+    terminee: { bg: '#dcfce7', text: '#166534' },
+    annulee: { bg: '#fee2e2', text: '#991b1b' }
   };
+  return colors[status.toLowerCase()] || { bg: '#e5e7eb', text: '#1f2937' };
+}
+// Envoyer un email
+const sendEmail = async (to, templateName, data) => {
+  try {
+    const template = notificationTemplates[templateName](data);
+    
+    console.log('Configuration SMTP:', {
+      host: process.env.SMTP_HOST,
+      port: process.env.SMTP_PORT,
+      secure: process.env.SMTP_SECURE,
+      user: process.env.SMTP_USER ? '***' : 'non défini',
+      from: process.env.SMTP_FROM
+    });
+    
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject: template.subject,
+      text: template.text,
+      html: template.html
+    });
+    
+    console.log('Email envoyé:', info.messageId);
+    return info;
+  } catch (error) {
+    console.error('Erreur lors de l\'envoi de l\'email:', error);
+    throw error;
+  }
+};
 
-// Fonction principale pour envoyer des notifications
-// Interface du service
-const sendNotification = {
-    async newIntervention(intervention) {
-      return notifyInterventionUsers(intervention, 'NEW_INTERVENTION');
-    },
-    async interventionUpdated(intervention, changes) {
-      return notifyInterventionUsers(intervention, 'INTERVENTION_UPDATED', changes);
-    }
-  };
+// Tester la connexion SMTP
+const testSMTP = async () => {
+  try {
+    await transporter.verify();
+    console.log('Connexion SMTP réussie');
+    return true;
+  } catch (error) {
+    console.error('Erreur de connexion SMTP:', error);
+    return false;
+  }
+};
 
-export default sendNotification;
+export {
+  notificationTemplates,
+  testSMTP,
+  sendEmail
+};
+
+export default {
+  notificationTemplates,
+  testSMTP,
+  sendEmail
+};
