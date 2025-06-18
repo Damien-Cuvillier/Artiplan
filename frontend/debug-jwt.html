@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug JWT - ArtiPlan</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        button { background: #007bff; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .danger { background: #dc3545; }
+        .danger:hover { background: #c82333; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Debug JWT - ArtiPlan</h1>
+        
+        <div class="section">
+            <h2>1. Analyse du token actuel</h2>
+            <button onclick="analyzeToken()">Analyser le token</button>
+            <div id="token-analysis"></div>
+        </div>
+        
+        <div class="section">
+            <h2>2. Connexion et génération d'un nouveau token</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" value="damien.cuvillier.37@gmail.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Mot de passe:</label>
+                    <input type="password" id="password" placeholder="Entrez votre mot de passe" required>
+                </div>
+                <button type="submit">Se connecter</button>
+            </form>
+            <div id="login-result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>3. Test du token avec l'API</h2>
+            <button onclick="testTokenWithAPI()">Tester le token avec l'API</button>
+            <div id="api-test-result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>4. Décodage du token JWT</h2>
+            <button onclick="decodeToken()">Décoder le token</button>
+            <div id="decode-result"></div>
+        </div>
+        
+        <div class="section">
+            <h2>5. Nettoyage</h2>
+            <button class="danger" onclick="clearAll()">🧹 Nettoyer tout</button>
+            <div id="clear-result"></div>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'https://artiplan-production.up.railway.app';
+        
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+        
+        function analyzeToken() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                showResult('token-analysis', '❌ Aucun token trouvé dans localStorage', 'error');
+                return;
+            }
+            
+            let analysis = '<h3>Analyse du token:</h3>';
+            analysis += `<p><strong>Longueur:</strong> ${token.length} caractères</p>`;
+            analysis += `<p><strong>Type:</strong> ${token.startsWith('dev-token-') ? 'Token de développement' : 'Token JWT'}</p>`;
+            
+            if (token.startsWith('dev-token-')) {
+                analysis += '<p class="warning">⚠️ Ce token est un token de développement et ne sera pas accepté par le backend</p>';
+            } else {
+                // Vérifier la structure JWT
+                const parts = token.split('.');
+                if (parts.length === 3) {
+                    analysis += '<p class="success">✅ Structure JWT valide (3 parties)</p>';
+                    
+                    try {
+                        const header = JSON.parse(atob(parts[0]));
+                        const payload = JSON.parse(atob(parts[1]));
+                        
+                        analysis += `<p><strong>Algorithme:</strong> ${header.alg}</p>`;
+                        analysis += `<p><strong>Type:</strong> ${header.typ}</p>`;
+                        analysis += `<p><strong>Expiration:</strong> ${new Date(payload.exp * 1000).toLocaleString()}</p>`;
+                        analysis += `<p><strong>Émis le:</strong> ${new Date(payload.iat * 1000).toLocaleString()}</p>`;
+                        analysis += `<p><strong>Utilisateur ID:</strong> ${payload.userId || payload.sub || 'Non trouvé'}</p>`;
+                    } catch (e) {
+                        analysis += `<p class="error">❌ Erreur lors du décodage: ${e.message}</p>`;
+                    }
+                } else {
+                    analysis += '<p class="error">❌ Structure JWT invalide</p>';
+                }
+            }
+            
+            analysis += `<pre>${token}</pre>`;
+            showResult('token-analysis', analysis, 'info');
+        }
+        
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            showResult('login-result', '🔄 Connexion en cours...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    const jsonData = JSON.parse(data);
+                    localStorage.setItem('token', jsonData.token);
+                    localStorage.setItem('user', JSON.stringify(jsonData.data.user));
+                    
+                    showResult('login-result', `
+                        ✅ Connexion réussie !<br>
+                        <strong>Token généré:</strong> ${jsonData.token.substring(0, 50)}...<br>
+                        <strong>Utilisateur:</strong> ${jsonData.data.user.nom}<br>
+                        <strong>Réponse complète:</strong><br>
+                        <pre>${data}</pre>
+                    `, 'success');
+                    
+                    // Analyser automatiquement le nouveau token
+                    setTimeout(analyzeToken, 1000);
+                } else {
+                    showResult('login-result', `❌ Erreur de connexion (${response.status})<pre>${data}</pre>`, 'error');
+                }
+            } catch (error) {
+                showResult('login-result', `❌ Erreur de connexion: ${error.message}`, 'error');
+            }
+        });
+        
+        async function testTokenWithAPI() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                showResult('api-test-result', '❌ Aucun token disponible pour le test', 'error');
+                return;
+            }
+            
+            showResult('api-test-result', '🔄 Test de l\'API avec le token en cours...', 'info');
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/chantiers`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    const jsonData = JSON.parse(data);
+                    showResult('api-test-result', `
+                        ✅ API accessible avec le token !<br>
+                        <strong>Nombre de chantiers:</strong> ${jsonData.data ? jsonData.data.length : 0}<br>
+                        <strong>Réponse complète:</strong><br>
+                        <pre>${data}</pre>
+                    `, 'success');
+                } else if (response.status === 401) {
+                    showResult('api-test-result', `
+                        ❌ Token rejeté par l'API (401 Unauthorized)<br>
+                        <strong>Réponse:</strong><br>
+                        <pre>${data}</pre>
+                    `, 'error');
+                } else {
+                    showResult('api-test-result', `
+                        ⚠️ Erreur API (${response.status})<br>
+                        <strong>Réponse:</strong><br>
+                        <pre>${data}</pre>
+                    `, 'error');
+                }
+            } catch (error) {
+                showResult('api-test-result', `❌ Erreur de connexion: ${error.message}`, 'error');
+            }
+        }
+        
+        function decodeToken() {
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                showResult('decode-result', '❌ Aucun token à décoder', 'error');
+                return;
+            }
+            
+            if (token.startsWith('dev-token-')) {
+                showResult('decode-result', '⚠️ Ce token de développement ne peut pas être décodé comme un JWT', 'warning');
+                return;
+            }
+            
+            try {
+                const parts = token.split('.');
+                if (parts.length !== 3) {
+                    showResult('decode-result', '❌ Token JWT invalide (doit avoir 3 parties)', 'error');
+                    return;
+                }
+                
+                const header = JSON.parse(atob(parts[0]));
+                const payload = JSON.parse(atob(parts[1]));
+                
+                let decodeInfo = '<h3>Décodage du token JWT:</h3>';
+                decodeInfo += '<h4>Header:</h4>';
+                decodeInfo += `<pre>${JSON.stringify(header, null, 2)}</pre>`;
+                decodeInfo += '<h4>Payload:</h4>';
+                decodeInfo += `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+                decodeInfo += '<h4>Signature:</h4>';
+                decodeInfo += `<pre>${parts[2]}</pre>`;
+                
+                showResult('decode-result', decodeInfo, 'info');
+            } catch (error) {
+                showResult('decode-result', `❌ Erreur lors du décodage: ${error.message}`, 'error');
+            }
+        }
+        
+        function clearAll() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            showResult('clear-result', '✅ localStorage nettoyé avec succès', 'success');
+            
+            // Vider tous les autres résultats
+            document.getElementById('token-analysis').innerHTML = '';
+            document.getElementById('login-result').innerHTML = '';
+            document.getElementById('api-test-result').innerHTML = '';
+            document.getElementById('decode-result').innerHTML = '';
+        }
+        
+        // Analyser automatiquement au chargement
+        window.onload = function() {
+            analyzeToken();
+        };
+    </script>
+</body>
+</html> 
