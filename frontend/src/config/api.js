@@ -1,5 +1,5 @@
 // src/config/api.js
-export const API_BASE_URL = ''; // Utilise le proxy Vite
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://artiplan-production.up.railway.app'; // URL dynamique selon l'environnement
 
 export const API_ENDPOINTS = {
   AUTH: {
