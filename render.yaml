@@ -9,8 +9,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: MONGODB_URI
-        sync: false
       - key: JWT_SECRET
         sync: false
       - key: PORT
@@ -27,9 +25,3 @@ services:
     envVars:
       - key: VITE_API_URL
         value: https://artiplan-backend.onrender.com
-
-  # Base de données MongoDB
-  - type: mongodb
-    name: artiplan-db
-    plan: free
-    ipAllowList: []
