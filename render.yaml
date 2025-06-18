@@ -1,0 +1,35 @@
+services:
+  # Backend API
+  - type: web
+    name: artiplan-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: 10000
+    healthCheckPath: /api/health
+
+  # Frontend React
+  - type: web
+    name: artiplan-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://artiplan-backend.onrender.com
+
+  # Base de données MongoDB
+  - type: mongodb
+    name: artiplan-db
+    plan: free
+    ipAllowList: []
