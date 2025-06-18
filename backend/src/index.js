@@ -24,7 +24,7 @@ const __dirname = path.dirname(__filename);
 // Initialisation
 dotenv.config();
 const app = express();
-
+app.set('trust proxy', 1);
 // Middleware de sécurité
 securityMiddleware(app);
 
