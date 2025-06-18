@@ -1,10 +1,18 @@
 // src/config/api.js
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://artiplan-production.up.railway.app'; // URL dynamique selon l'environnement
+// URL dynamique selon l'environnement
+let apiUrl = import.meta.env.VITE_API_URL || 'https://artiplan-production.up.railway.app';
+
+// Nettoyer l'URL (supprimer le @ si présent)
+if (apiUrl.startsWith('@')) {
+  apiUrl = apiUrl.substring(1);
+}
+
+export const API_BASE_URL = apiUrl;
 
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/api/auth/login',
-    SIGNUP: '/api/auth/signup',
+    REGISTER: '/api/auth/register',
     ME: '/api/auth/me'
   },
   CHANTIERS: '/api/chantiers',
