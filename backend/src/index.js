@@ -30,7 +30,14 @@ securityMiddleware(app);
 
 // Configuration CORS
 const corsOptions = {
-  origin: ['http://localhost:5173', 'http://localhost:5000'],
+  origin: [
+    'http://localhost:5173', 
+    'http://localhost:5000',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'https://artiplan.vercel.app',
+    'https://artiplan-production.up.railway.app'
+  ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
@@ -43,7 +50,14 @@ app.use(cors(corsOptions));
 
 // Middleware pour ajouter les en-têtes CORS manquants
 app.use((req, res, next) => {
-  const allowedOrigins = ['http://localhost:5173', 'http://localhost:5000'];
+  const allowedOrigins = [
+    'http://localhost:5173', 
+    'http://localhost:5000',
+    'http://localhost:5174',
+    'http://localhost:5175',
+    'https://artiplan.vercel.app',
+    'https://artiplan-production.up.railway.app'
+  ];
   const origin = req.headers.origin;
   
   if (allowedOrigins.includes(origin)) {
