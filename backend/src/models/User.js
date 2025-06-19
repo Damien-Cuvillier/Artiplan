@@ -9,7 +9,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true, select: false },
   role: { type: String, enum: ['admin', 'user'], default: 'user' },
   telephone: { type: String },
-  entreprise: { type: String },
+  entreprise: { type: String, required: true },
   notifications: {
     email: {
       enabled: { type: Boolean, default: true },
