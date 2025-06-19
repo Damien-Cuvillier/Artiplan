@@ -27,7 +27,8 @@ export const creerChantier = async (req, res) => {
       statut: statut || (priorite === 'critique' ? 'en_cours' : 'en_attente'),
       adresse,
       description: description || '',
-      responsable_id: req.user._id
+      responsable_id: req.user._id,
+      entreprise: req.user.entreprise
     });
 
     // Sauvegarde du chantier
@@ -85,6 +86,13 @@ export const getChantier = async (req, res) => {
         message: 'Aucun chantier trouvé avec cet ID'
       });
     }
+    // Vérification d'appartenance à l'entreprise
+    if (chantier.entreprise !== req.user.entreprise) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'Accès interdit à ce chantier'
+      });
+    }
     chantier.client_nom = chantier.client_nom || 'Non spécifié';
     res.status(200).json({
       status: 'success',
@@ -102,7 +110,24 @@ export const getChantier = async (req, res) => {
     });
   }
 };
-
+// Exemple dans chantierController.js
+export const getAllChantiers = async (req, res) => {
+  try {
+    // On suppose que req.user.entreprise est bien renseigné par le middleware d'auth
+    const chantiers = await Chantier.find({ entreprise: req.user.entreprise });
+    res.status(200).json({
+      status: 'success',
+      results: chantiers.length,
+      data: { chantiers }
+    });
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      message: 'Erreur lors de la récupération des chantiers',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
 export const supprimerChantier = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -151,7 +176,7 @@ export const supprimerChantier = async (req, res) => {
 
 export const listeChantiers = async (req, res) => {
   try {
-    const chantiers = await Chantier.find()
+    const chantiers = await Chantier.find({ entreprise: req.user.entreprise })
       .populate('responsable_id', 'nom prenom')
       .sort({ date_debut: -1 });
 
@@ -174,7 +199,8 @@ export const listeChantiers = async (req, res) => {
 
 export const getMesChantiers = async (req, res) => {
   try {
-    const chantiers = await Chantier.find({ 
+    const chantiers = await Chantier.find({
+      entreprise: req.user.entreprise,
       $or: [
         { responsable_id: req.user._id },
         { 'membres_equipe': req.user._id }
