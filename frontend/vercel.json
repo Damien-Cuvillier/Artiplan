@@ -10,6 +10,10 @@
     {
       "source": "/uploads/(.*)",
       "destination": "https://artiplan-production.up.railway.app/uploads/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
     }
   ],
   "headers": [
