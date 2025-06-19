@@ -80,6 +80,9 @@ export const createIntervention = catchAsync(async (req, res, next) => {
     entreprise: req.user.entreprise
   });
 
+  // Mettre à jour la progression du chantier
+  await Chantier.updateChantierProgress(intervention.chantier_id);
+
   // Récupérer l'utilisateur pour l'email
   const user = await User.findById(technicien_id);
   
@@ -225,6 +228,9 @@ export const updateIntervention = catchAsync(async (req, res, next) => {
     return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
   }
 
+  // Mettre à jour la progression du chantier
+  await Chantier.updateChantierProgress(intervention.chantier_id);
+
   res.status(200).json({
     status: 'success',
     data: {
@@ -261,6 +267,8 @@ export const deleteIntervention = catchAsync(async (req, res, next) => {
       { $pull: { interventions: intervention._id } },
       { new: true }
     );
+    // Mettre à jour la progression du chantier
+    await Chantier.updateChantierProgress(intervention.chantier_id);
   }
 
   res.status(204).json({
