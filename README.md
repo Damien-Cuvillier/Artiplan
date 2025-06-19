@@ -1,3 +1,5 @@
+![All rights reserved](https://img.shields.io/badge/license-All%20rights%20reserved-red)
+
 ## ⚠️ Propriété et droits d’auteur
 
 Ce projet est la propriété exclusive de Damien Cuvillier.  
