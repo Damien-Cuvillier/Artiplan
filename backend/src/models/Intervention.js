@@ -21,6 +21,10 @@ const interventionSchema = new mongoose.Schema(
       type: Number,
       min: [0, 'La durée ne peut pas être négative']
     },
+    entreprise: {
+      type: String,
+      required: [true, 'Le champ entreprise est obligatoire pour une intervention']
+    },
     statut: {
       type: String,
       enum: {
