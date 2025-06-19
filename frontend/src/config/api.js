@@ -28,20 +28,18 @@ export const getAuthHeader = () => {
 
 export const getImageUrl = (imagePath) => {
   if (!imagePath) return '';
-  
-  // Si c'est déjà une URL complète, la retourner telle quelle
+  // Si l'image vient de localhost, on ne garde que le chemin relatif
+  if (typeof imagePath === 'string' && imagePath.includes('localhost:5000/uploads/')) {
+    return imagePath.replace(/^https?:\/\/localhost:5000/, '');
+  }
+  // Si c'est déjà une URL complète (autre que localhost), la retourner telle quelle
   if (typeof imagePath === 'string' && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
     return imagePath;
   }
-  
   // Nettoyer le chemin
   let cleanPath = String(imagePath).trim();
-  
-  // Supprimer tous les préfixes /uploads/ pour éviter les doublons
-  cleanPath = cleanPath.replace(/^\/+|\/+$/g, ''); // Supprimer les slashes au début et à la fin
-  cleanPath = cleanPath.replace(/^uploads\//, ''); // Supprimer le préfixe uploads/ s'il existe
-  
-  // Construire l'URL complète avec le proxy
+  cleanPath = cleanPath.replace(/^\/+|\/+$/g, '');
+  cleanPath = cleanPath.replace(/^uploads\//, '');
   return `/uploads/${cleanPath}`;
 };
 
