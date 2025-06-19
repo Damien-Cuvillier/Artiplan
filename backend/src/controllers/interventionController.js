@@ -76,7 +76,8 @@ export const createIntervention = catchAsync(async (req, res, next) => {
     prix,
     images: formattedImages,
     technicien_id: technicien_id,  
-    chantier_id: chantier_id       
+    chantier_id: chantier_id,
+    entreprise: req.user.entreprise
   });
 
   // Récupérer l'utilisateur pour l'email
@@ -119,7 +120,7 @@ export const createIntervention = catchAsync(async (req, res, next) => {
  * @access Privé
  */
 export const getInterventionsByChantier = catchAsync(async (req, res) => {
-  const interventions = await Intervention.find({ chantier_id: req.params.chantierId })
+  const interventions = await Intervention.find({ chantier_id: req.params.chantierId, entreprise: req.user.entreprise })
     .populate('technicien_id', 'nom prenom email')
     .sort({ date_intervention: -1 });
 
@@ -136,7 +137,7 @@ export const getInterventionsByChantier = catchAsync(async (req, res) => {
  * @access Privé
  */
 export const getInterventionsByTechnicien = catchAsync(async (req, res) => {
-  const interventions = await Intervention.find({ technicien_id: req.params.technicienId })
+  const interventions = await Intervention.find({ technicien_id: req.params.technicienId, entreprise: req.user.entreprise })
     .populate('chantier_id', 'titre client_nom')
     .sort({ date_intervention: -1 });
   
@@ -159,6 +160,13 @@ export const getIntervention = catchAsync(async (req, res, next) => {
   
   if (!intervention) {
     return next(new AppError('Aucune intervention trouvée avec cet ID', 404));
+  }
+  // Vérification d'appartenance à l'entreprise
+  if (intervention.entreprise !== req.user.entreprise) {
+    return res.status(403).json({
+      status: 'fail',
+      message: 'Accès interdit à cette intervention'
+    });
   }
   
   res.status(200).json({
@@ -267,7 +275,7 @@ export const deleteIntervention = catchAsync(async (req, res, next) => {
  * @access Privé
  */
 export const getAllInterventions = catchAsync(async (req, res) => {
-  const interventions = await Intervention.find({})
+  const interventions = await Intervention.find({ entreprise: req.user.entreprise })
     .populate('technicien_id', 'nom prenom')
     .populate('chantier_id', 'titre client_nom')
     .sort({ date_intervention: -1 });
