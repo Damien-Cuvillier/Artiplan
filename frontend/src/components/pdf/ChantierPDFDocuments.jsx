@@ -1,5 +1,6 @@
 // Composant PDF Document
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer'
+import { getImageUrl } from '../../config/api'
 
 
 // Styles pour le PDF
@@ -191,38 +192,6 @@ const styles = StyleSheet.create({
   }
 });
 
-const getFullImageUrl = (imagePath) => {
-  if (!imagePath) {
-    console.log('❌ Aucun chemin d\'image fourni');
-    return '';
-  }
-  
-  console.log('🔍 Traitement du chemin d\'image:', imagePath);
-  
-  // Si c'est déjà une URL complète, la retourner telle quelle
-  if (typeof imagePath === 'string' && 
-      (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
-    console.log('✅ URL complète détectée:', imagePath);
-    return imagePath;
-  }
-  
-  // URL de base du backend
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-  
-  // Nettoyer le chemin
-  let cleanPath = String(imagePath).trim();
-  
-  // Supprimer les préfixes /uploads/ pour éviter les doublons
-  cleanPath = cleanPath.replace(/^\/+|\/+$/g, ''); // Supprimer les slashes au début et à la fin
-  cleanPath = cleanPath.replace(/^uploads\//, ''); // Supprimer le préfixe uploads/ s'il existe
-  
-  // Construire l'URL finale avec un seul préfixe /uploads/
-  const finalUrl = `${baseUrl}/uploads/${cleanPath}`;
-  
-  console.log('🔗 URL finale générée:', finalUrl);
-  return finalUrl;
-};
-
 const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
     // Calculs
     const totalInterventions = interventions.length
@@ -407,7 +376,7 @@ const ChantierPDFDocument = ({ chantier, interventions = [] }) => {
                 return null;
               }
               
-              const imageUrl = getFullImageUrl(img);
+              const imageUrl = getImageUrl(img);
               console.log(`🖼️ Tentative de chargement de l'image ${imgIndex}:`, imageUrl);
               
               return (
