@@ -18,6 +18,15 @@ export const login = async (req, res) => {
     // 2) Vérifier si l'utilisateur existe
     const user = await User.findOne({ email }).select('+password');
     
+    // Vérifier que la méthode correctPassword existe
+    if (user && typeof user.correctPassword !== 'function') {
+      console.error('La méthode correctPassword est manquante sur le modèle User.');
+      return res.status(500).json({
+        status: 'error',
+        message: 'Erreur interne: méthode de vérification du mot de passe manquante.'
+      });
+    }
+    
     if (!user || !(await user.correctPassword(password, user.password))) {
       return res.status(401).json({
         status: 'error',
@@ -25,7 +34,16 @@ export const login = async (req, res) => {
       });
     }
     
-    // 3) Si tout est OK, envoyer le token
+    // 3) Vérifier la présence de JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      console.error('La variable d\'environnement JWT_SECRET est manquante !');
+      return res.status(500).json({
+        status: 'error',
+        message: 'Erreur de configuration du serveur (JWT_SECRET manquant)'
+      });
+    }
+    
+    // 4) Si tout est OK, envoyer le token
     const token = jwt.sign(
       { id: user._id.toString() },
       process.env.JWT_SECRET,
@@ -47,7 +65,8 @@ export const login = async (req, res) => {
     console.error('Erreur lors de la connexion:', error);
     res.status(500).json({
       status: 'error',
-      message: 'Erreur lors de la connexion'
+      message: 'Erreur lors de la connexion',
+      details: error.message || error
     });
   }
 };
