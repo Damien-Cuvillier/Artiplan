@@ -180,8 +180,10 @@ const Dashboard = () => {
   const { chantiers, fetchChantiers, isLoading } = useChantierStore()
 
   useEffect(() => {
-    fetchChantiers()
-  }, [fetchChantiers])
+    if (user) {
+      fetchChantiers(true); // forceRefresh à true pour recharger depuis l'API
+    }
+  }, [user, fetchChantiers]);
 
   // Calculs pour les statistiques
   const stats = {
