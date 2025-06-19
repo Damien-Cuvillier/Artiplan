@@ -45,7 +45,7 @@ export const useChantierStore = create((set, get) => ({
   error: null,
   rateLimitExceeded: false,
   retryAfter: null,
-
+  resetChantiers: () => set({ chantiers: [], currentChantier: null, interventions: [] }),
   // Fonction utilitaire pour gérer les réponses d'erreur
   handleApiError: async (response) => {
     if (response.status === 429) {
