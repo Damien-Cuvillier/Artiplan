@@ -9,7 +9,7 @@ const getStoredUser = () => {
 };
 
 // Mode de développement temporaire
-const DEV_MODE = true; // Mettre à false quand le backend est prêt
+const DEV_MODE = false; // Mettre à false quand le backend est prêt
 
 export const useAuthStore = create((set) => ({
   // Récupérer l'utilisateur du localStorage au chargement initial
