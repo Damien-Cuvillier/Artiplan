@@ -72,6 +72,10 @@ const chantierSchema = new mongoose.Schema({
     enum: ['en_attente', 'en_cours', 'termine', 'annule'], 
     default: 'en_attente' 
   },
+  entreprise: {
+  type: String,
+  required: [true, 'Le champ entreprise est obligatoire pour un chantier']
+},
   progression: {
     type: Number,
     default: 0,
