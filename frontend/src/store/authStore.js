@@ -1,6 +1,7 @@
 // src/store/authStore.js
 import { create } from 'zustand';
 import { API_BASE_URL } from '../config/api';
+import { useChantierStore } from './chantierStore';
 
 // Fonction utilitaire pour obtenir l'utilisateur depuis le localStorage
 const getStoredUser = () => {
@@ -115,6 +116,8 @@ export const useAuthStore = create((set) => ({
       isAuthenticated: false,
       error: null
     });
+     // Réinitialiser les chantiers
+  useChantierStore.getState().resetChantiers();
   },
 
   checkAuth: async () => {
